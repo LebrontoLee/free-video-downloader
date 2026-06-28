@@ -79,9 +79,14 @@ async function handleExtract(url) {
       selectedFormat.value = data.data.formats[0].format_id
     }
     view.value = 'preview'
+    // Wait for DOM update + compact hero transition, then scroll with offset
+    // The fixed nav (48px) + compact hero (~88px) would otherwise overlay the card
     setTimeout(() => {
-      document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 100)
+      const el = document.getElementById('preview-section')
+      if (!el) return
+      const top = el.getBoundingClientRect().top + window.scrollY - 140
+      window.scrollTo({ top, behavior: 'smooth' })
+    }, 200)
   } catch {
     error.value = t.value.error_network
   } finally {
