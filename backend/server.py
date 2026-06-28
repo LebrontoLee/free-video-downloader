@@ -2,6 +2,10 @@
 Free Video Downloader - Backend Server
 FastAPI + yt-dlp integration
 """
+# Load .env file before any other imports
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import re
 import uuid
@@ -23,6 +27,19 @@ import yt_dlp.utils
 
 # Douyin helper — auto session cookies
 from douyin_helper import get_douyin_cookiefile, extract_aweme_id, get_video_info_playwright, download_direct
+
+# AI helpers — subtitle extraction + DeepSeek integration
+from subtitle_helper import extract_subtitles, get_video_metadata_context, SubtitleNotFoundError
+from bilibili_auth import get_saved_cookie, check_login
+from ai_tasks import (
+    transcript_cache, summary_cache, mindmap_cache,
+    chat_sessions, create_chat_session, get_chat_session,
+    append_to_history, get_chat_history,
+    cache_transcript, get_cached_transcript,
+    cache_summary, get_cached_summary,
+    cache_mindmap, get_cached_mindmap,
+    get_url_lock,
+)
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 app = FastAPI(title="Free Video Downloader", version="1.0.0")
@@ -62,6 +79,29 @@ class DownloadRequest(BaseModel):
     url: str
     format_id: str = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
     cookies_from_browser: Optional[str] = None
+
+
+# ─── AI Request Models ─────────────────────────────────────────────────────────
+class SubtitleRequest(BaseModel):
+    url: str
+    lang: Optional[str] = None
+    cookies_from_browser: Optional[str] = None  # e.g., "chrome", "edge"
+
+
+class SummaryRequest(BaseModel):
+    url: str
+    style: str = "detailed"  # "detailed" or "concise"
+
+
+class MindmapRequest(BaseModel):
+    url: str
+    source: str = "transcript"  # "transcript" or "summary"
+
+
+class ChatRequest(BaseModel):
+    url: str
+    question: str
+    session_id: Optional[str] = None
 
 
 # ─── Helper Functions ────────────────────────────────────────────────────────
@@ -404,7 +444,12 @@ def run_download(task: DownloadTask, url: str, format_id: str, cookies_from_brow
 @app.get("/api/health")
 async def health_check():
     """Simple health check endpoint."""
-    return {"status": "ok", "version": "1.0.0"}
+    deepseek_configured = bool(os.environ.get("DEEPSEEK_API_KEY"))
+    return {
+        "status": "ok",
+        "version": "1.1.0",
+        "deepseek_configured": deepseek_configured,
+    }
 
 
 @app.post("/api/extract")
@@ -558,7 +603,7 @@ async def stream_progress(task_id: str, request: Request):
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/event-stream",
+        media_type="text/event-stream; charset=utf-8",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
@@ -605,6 +650,300 @@ async def download_file(filename: str):
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI Endpoints — Subtitle extraction, summarization, mind map, Q&A
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/ai/health")
+async def ai_health_check():
+    """Check if DeepSeek API is configured."""
+    deepseek_configured = bool(os.environ.get("DEEPSEEK_API_KEY"))
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+    return {
+        "status": "ok",
+        "deepseek_configured": deepseek_configured,
+        "model": model,
+    }
+
+
+@app.post("/api/ai/subtitles")
+async def extract_subtitles_endpoint(req: SubtitleRequest):
+    """
+    Extract subtitles/transcript for a video URL.
+    Uses yt-dlp in a thread to download subtitles without the video.
+    """
+    if not req.url.strip():
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check cache first
+    cached = get_cached_transcript(req.url)
+    if cached:
+        return {"success": True, "data": cached}
+
+    # Serialize subtitle extraction per URL
+    lock = get_url_lock(req.url)
+    async with lock:
+        # Double-check cache after acquiring lock
+        cached = get_cached_transcript(req.url)
+        if cached:
+            return {"success": True, "data": cached}
+
+        # Only pass browser cookies if explicitly requested by user
+        cookies = req.cookies_from_browser
+
+        try:
+            data = await asyncio.to_thread(extract_subtitles, req.url, req.lang, cookies)
+            # If no subtitles found, try metadata fallback
+            if not data.get("available"):
+                data = await asyncio.to_thread(get_video_metadata_context, req.url)
+            cache_transcript(req.url, data)
+            return {"success": True, "data": data}
+        except SubtitleNotFoundError:
+            # Try metadata fallback
+            try:
+                data = await asyncio.to_thread(get_video_metadata_context, req.url)
+                cache_transcript(req.url, data)
+                return {"success": True, "data": data}
+            except Exception:
+                data = {
+                    "video_id": "",
+                    "subtitles": [],
+                    "language": None,
+                    "is_auto_generated": False,
+                    "full_text": "",
+                    "subtitle_count": 0,
+                    "available": False,
+                }
+                cache_transcript(req.url, data)
+                return {"success": True, "data": data}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to extract subtitles: {str(e)}")
+
+
+@app.get("/api/ai/summary")
+async def generate_summary_endpoint(url: str, style: str = "detailed"):
+    """
+    Generate an AI summary of the video transcript.
+    SSE streaming with token-by-token output. Uses GET for native EventSource support.
+    """
+    if not url.strip():
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    transcript_data = get_cached_transcript(url)
+    if not transcript_data:
+        try:
+            transcript_data = await asyncio.to_thread(extract_subtitles, url)
+            cache_transcript(url, transcript_data)
+        except SubtitleNotFoundError:
+            transcript_data = {"available": False, "full_text": "", "subtitles": []}
+            cache_transcript(url, transcript_data)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to extract subtitles: {str(e)}")
+
+    if not transcript_data.get("available") or not transcript_data.get("full_text"):
+        raise HTTPException(status_code=400, detail="No transcript available for summary generation.")
+
+    # Format transcript with timestamps if available
+    subs = transcript_data.get("subtitles", [])
+    if subs:
+        full_text = "\n".join(
+            f"[{_fmt_ts(s['start'])}] {s['text']}" for s in subs
+        )
+    else:
+        full_text = transcript_data["full_text"]
+
+    async def summary_event_generator():
+        from ai_helper import DeepSeekClient
+        client = DeepSeekClient()
+        accumulated = []
+        try:
+            for token in client.generate_summary_stream(full_text, style):
+                accumulated.append(token)
+                yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+            full_summary = "".join(accumulated)
+            # Post-process: attach timestamps to key points
+            if subs:
+                full_summary = _attach_timestamps(full_summary, subs)
+            cache_summary(url, full_summary)
+            yield f"event: done\ndata: {json.dumps({'summary': full_summary}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        summary_event_generator(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/ai/mindmap")
+async def generate_mindmap_endpoint(req: MindmapRequest):
+    """
+    Generate a mind map tree from video transcript or summary.
+    Uses DeepSeek JSON mode for structured output.
+    """
+    if not req.url.strip():
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check cache
+    cached = get_cached_mindmap(req.url)
+    if cached:
+        return {"success": True, "data": cached}
+
+    # Get source text
+    source_text = ""
+    if req.source == "summary":
+        source_text = get_cached_summary(req.url) or ""
+
+    if not source_text:
+        # Use transcript
+        transcript_data = get_cached_transcript(req.url)
+        if not transcript_data:
+            try:
+                transcript_data = await asyncio.to_thread(extract_subtitles, req.url)
+                cache_transcript(req.url, transcript_data)
+            except SubtitleNotFoundError:
+                transcript_data = {"available": False, "full_text": ""}
+                cache_transcript(req.url, transcript_data)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to extract subtitles: {str(e)}")
+
+        if not transcript_data.get("available") or not transcript_data.get("full_text"):
+            raise HTTPException(status_code=400, detail="No transcript available for mind map generation.")
+
+        source_text = transcript_data["full_text"]
+
+    from ai_helper import DeepSeekClient
+    client = DeepSeekClient()
+
+    try:
+        mindmap_data = await asyncio.to_thread(client.generate_mindmap, source_text)
+        cache_mindmap(req.url, mindmap_data)
+        return {"success": True, "data": mindmap_data}
+    except ValueError as e:
+        # JSON validation failed — return fallback
+        fallback = {
+            "root": {
+                "label": "Mind Map",
+                "children": [{"label": "Could not generate structured mind map", "children": []}],
+            }
+        }
+        cache_mindmap(req.url, fallback)
+        return {"success": True, "data": fallback, "warning": str(e)}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
+
+
+@app.get("/api/ai/chat/stream")
+async def chat_stream_endpoint(url: str, question: str, session_id: str = ""):
+    """
+    Stream AI Q&A responses about video content.
+    Uses GET for native EventSource support.
+    """
+    if not url.strip() or not question.strip():
+        raise HTTPException(status_code=400, detail="URL and question are required")
+
+    if not session_id or not get_chat_session(session_id):
+        session_id = create_chat_session(url)
+    else:
+        session = get_chat_session(session_id)
+        if session and session.get("url") != url:
+            session_id = create_chat_session(url)
+
+    transcript_data = get_cached_transcript(url)
+    if not transcript_data:
+        try:
+            transcript_data = await asyncio.to_thread(extract_subtitles, url)
+            cache_transcript(url, transcript_data)
+        except SubtitleNotFoundError:
+            transcript_data = {"available": False, "full_text": ""}
+            cache_transcript(url, transcript_data)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to extract subtitles: {str(e)}")
+
+    if not transcript_data.get("available") or not transcript_data.get("full_text"):
+        raise HTTPException(status_code=400, detail="No transcript available for Q&A.")
+
+    full_text = transcript_data["full_text"]
+    history = get_chat_history(session_id)
+    append_to_history(session_id, "user", question)
+
+    async def chat_event_generator():
+        from ai_helper import DeepSeekClient
+        client = DeepSeekClient()
+        accumulated = []
+        try:
+            for token in client.chat_stream(full_text, history, question):
+                accumulated.append(token)
+                yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+            full_answer = "".join(accumulated)
+            append_to_history(session_id, "assistant", full_answer)
+            yield f"event: done\ndata: {json.dumps({'session_id': session_id, 'full_answer': full_answer}, ensure_ascii=False)}\n\n"
+
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        chat_event_generator(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+def _attach_timestamps(summary: str, subtitles: list) -> str:
+    """Attach timestamps to summary points by keyword matching with subtitle lines."""
+    import re as _re
+    lines = summary.split('\n')
+    result = []
+
+    for line in lines:
+        stripped = line.strip()
+        # Only process numbered/bullet lines that don't already have timestamps
+        is_point = bool(_re.match(r'^(\d+[\.\、\)]|[-•])\s*', stripped))
+        has_ts = bool(_re.search(r'\[\d+:\d+\]', stripped))
+
+        if is_point and not has_ts:
+            # Extract key terms (meaningful words, 2+ chars)
+            words = _re.findall(r'[\w一-鿿]{2,}', stripped)
+            if words and len(words) >= 2:
+                # Find best matching subtitle
+                best_sub = _find_best_match(words, subtitles)
+                if best_sub:
+                    ts = _fmt_ts(best_sub["start"])
+                    line = _re.sub(r'^(\d+[\.\、\)]|[-•])\s*', f'\\1 [{ts}] ', stripped)
+        result.append(line)
+
+    return '\n'.join(result)
+
+
+def _find_best_match(words: list, subtitles: list) -> dict:
+    """Find the subtitle line with most keyword matches."""
+    best_score = 0
+    best_sub = None
+    word_set = set(w.lower() for w in words)
+
+    for sub in subtitles:
+        text_lower = sub["text"].lower()
+        score = sum(1 for w in word_set if w in text_lower)
+        if score > best_score:
+            best_score = score
+            best_sub = sub
+
+    return best_sub if best_score >= 2 else None
+
+
+def _fmt_ts(seconds: float) -> str:
+    """Format seconds to MM:SS timestamp string."""
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
 
 def format_duration(seconds: int) -> str:
     """Convert seconds to HH:MM:SS or MM:SS format."""

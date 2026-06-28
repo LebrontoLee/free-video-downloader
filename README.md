@@ -1,11 +1,16 @@
 # Free Video Downloader
 
-基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的在线视频下载器，支持 **YouTube、Bilibili、抖音** 等 1700+ 网站。  
+基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的在线视频下载器 + AI 视频分析工具。支持 **YouTube、Bilibili、抖音** 等 1700+ 网站的视频下载，以及 **AI 总结、思维导图、AI 问答** 等智能分析功能。
+
 前端采用 Apple 风格设计，默认中文界面，支持中英文切换。
 
 ## 特性
 
-- 🎬 **多平台支持** — YouTube、Bilibili、抖音（Douyin）等 1700+ 网站
+- 🎬 **多平台下载** — YouTube、Bilibili、抖音（Douyin）等 1700+ 网站
+- 🤖 **AI 视频分析** — 基于 DeepSeek 大模型的视频总结、思维导图、AI 问答
+- 📝 **字幕提取** — 自动提取字幕/转录文本（支持 YouTube 自动字幕、B 站 CC 字幕）
+- 🧠 **思维导图** — 自动生成结构化思维导图，支持缩放拖拽、PNG 导出
+- 💬 **AI 问答** — 针对视频内容提问，流式对话回复
 - 🍎 **Apple 风格 UI** — 极简高级设计，Vue 3 + Vite 前端
 - 🇨🇳 **中文优先** — 默认中文界面，一键切换 English
 - 🎯 **抖音免登录** — Playwright 自动获取 cookie，无需用户操作
@@ -17,9 +22,10 @@
 
 | 层 | 技术 |
 |---|---|
-| 后端 | Python FastAPI + yt-dlp + Playwright |
+| 后端 | Python FastAPI + yt-dlp + Playwright + DeepSeek API |
 | 前端 | Vue 3 + Vite（无 UI 框架） |
-| 通信 | REST API + SSE 进度推送 |
+| 通信 | REST API + SSE 进度推送 + EventSource 流式 |
+| AI | DeepSeek V4 Pro（OpenAI 兼容 SDK） |
 | 设计 | Apple 风格设计 Token |
 
 ## 快速开始
@@ -28,14 +34,14 @@
 
 - Python 3.10+
 - Node.js 18+
-- Chrome 浏览器（用于抖音下载）
+- Chrome 浏览器（用于抖音下载、B 站字幕提取）
 - FFmpeg（用于视频合并）
 
 ### 安装
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/YOUR_USERNAME/free-video-downloader.git
+git clone https://github.com/LebrontoLee/free-video-downloader.git
 cd free-video-downloader
 
 # 2. 安装后端依赖
@@ -52,6 +58,26 @@ cd ..
 winget install ffmpeg
 # 或 macOS: brew install ffmpeg
 # 或 Linux: sudo apt install ffmpeg
+```
+
+### 配置
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+编辑 `.env`：
+
+```env
+# DeepSeek API Key（必填，用于 AI 分析）
+DEEPSEEK_API_KEY=sk-your-key-here
+
+# Bilibili Cookie（可选，用于 B 站 CC 字幕提取）
+# 1. 浏览器登录 bilibili.com
+# 2. F12 → Application → Cookies → bilibili.com
+# 3. 复制 SESSDATA 的值
+BILIBILI_SESSDATA=your-sessdata-here
 ```
 
 ### 运行
@@ -73,8 +99,13 @@ npm run dev
 ```
 free-video-downloader/
 ├── backend/
-│   ├── server.py              # FastAPI 后端（API + yt-dlp 集成）
+│   ├── server.py              # FastAPI 后端（API + yt-dlp + AI 端点）
 │   ├── douyin_helper.py       # 抖音专用下载器（Playwright + RENDER_DATA）
+│   ├── subtitle_helper.py     # 字幕提取（yt-dlp + VTT/SRT 解析）
+│   ├── ai_helper.py           # DeepSeek 客户端 + Prompt 模板
+│   ├── ai_tasks.py            # 内存缓存 + 会话管理
+│   ├── bilibili_auth.py       # B 站 Cookie 管理
+│   ├── .env.example           # 环境变量模板
 │   └── requirements.txt       # Python 依赖
 ├── frontend/
 │   ├── index.html
@@ -83,6 +114,7 @@ free-video-downloader/
 │       ├── App.vue            # 根组件（状态 + 语言管理）
 │       ├── main.js
 │       ├── i18n.js            # 中英文文案
+│       ├── sse.js             # SSE 流读取工具
 │       ├── style.css          # Apple 设计系统
 │       └── components/
 │           ├── NavBar.vue          # 毛玻璃导航栏
@@ -90,14 +122,20 @@ free-video-downloader/
 │           ├── VideoPreview.vue    # 视频信息 + 格式选择
 │           ├── DownloadProgress.vue# 实时进度条
 │           ├── FileList.vue        # 已下载列表
-│           └── ProBanner.vue       # 付费升级横幅
+│           ├── ProBanner.vue       # 付费升级横幅
+│           ├── AiPanel.vue         # AI 功能标签页容器
+│           ├── SummaryCard.vue     # AI 流式总结 + 打字机效果
+│           ├── MindMap.vue         # SVG 思维导图（可缩放/下载）
+│           └── QAChat.vue          # AI 问答聊天界面
 └── downloads/                 # 下载存储目录
 ```
 
 ## API 端点
 
+### 下载相关
+
 | 方法 | 端点 | 说明 |
-|---|---|---|
+|------|------|------|
 | POST | `/api/extract` | 提取视频元信息（标题、封面、格式列表） |
 | POST | `/api/download` | 启动下载任务，返回 task_id |
 | GET | `/api/download/{id}/progress` | SSE 实时进度流 |
@@ -105,15 +143,25 @@ free-video-downloader/
 | GET | `/api/downloads/{filename}` | 下载已完成文件 |
 | GET | `/api/thumbnail?url=...` | 封面图代理（突破防盗链） |
 
+### AI 分析
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | `/api/ai/subtitles` | 提取字幕/转录文本 |
+| GET | `/api/ai/summary` | AI 总结（SSE 流式，打字机效果） |
+| POST | `/api/ai/mindmap` | 生成思维导图 JSON |
+| GET | `/api/ai/chat/stream` | AI 问答（SSE 流式） |
+| GET | `/api/ai/health` | DeepSeek 配置检查 |
+
 ## 平台兼容性
 
-| 平台 | 提取 | 下载 | 方法 |
-|---|---|---|---|
-| YouTube | ✅ | ✅ | yt-dlp |
-| Bilibili | ✅ | ✅ | yt-dlp + Referer 头 |
-| 抖音 (Douyin) | ✅ | ✅ | Playwright + RENDER_DATA 直链 |
-| Twitter/X | ✅ | ✅ | yt-dlp |
-| 其他 1700+ 网站 | ✅ | ✅ | yt-dlp |
+| 平台 | 提取 | 下载 | 字幕 | AI 分析 |
+|------|------|------|------|------|
+| YouTube | ✅ | ✅ | ✅ 自动字幕 | ✅ |
+| Bilibili | ✅ | ✅ | ⚠️ 需 SESSDATA | ✅ |
+| 抖音 (Douyin) | ✅ | ✅ | ❌ | ⚠️ 元数据 |
+| Twitter/X | ✅ | ✅ | ✅ | ✅ |
+| 其他 1700+ 网站 | ✅ | ✅ | ✅ | ✅ |
 
 ## 抖音下载原理
 
@@ -123,6 +171,16 @@ free-video-downloader/
 用户 URL → Playwright(系统Chrome) → 执行 JS 挑战
          → 提取 RENDER_DATA.app.videoDetail
          → 无水印直链 → httpx 下载
+```
+
+## AI 分析原理
+
+```
+用户输入 URL → 提取视频信息
+  ├─ 字幕提取: yt-dlp writeautomaticsub / B站 CC API
+  ├─ AI 总结: 字幕 → DeepSeek SSE 流式 → 打字机逐字渲染
+  ├─ 思维导图: 字幕 → DeepSeek JSON 模式 → SVG 树可视化
+  └─ AI 问答: 字幕 + 用户问题 → DeepSeek 流式回复
 ```
 
 ## License

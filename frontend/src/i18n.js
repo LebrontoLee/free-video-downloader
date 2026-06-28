@@ -64,6 +64,42 @@ export const messages = {
     error_extract: '无法解析视频信息',
     lang_switch: 'English',
     size_unknown: '大小未知',
+
+    // AI Panel
+    ai_back: '返回',
+    ai_title: 'AI 视频分析',
+    ai_loading_subtitles: '正在提取字幕...',
+    ai_subtitle_error: '字幕提取失败',
+    ai_go_back: '返回',
+    ai_no_subtitles_title: '该视频暂无字幕',
+    ai_no_subtitles_desc: 'AI 分析功能需要视频字幕或自动生成的字幕才能工作。请尝试其他有字幕的视频。',
+    ai_tab_summary: 'AI 总结',
+    ai_tab_mindmap: '思维导图',
+    ai_tab_chat: 'AI 问答',
+
+    // Summary
+    ai_summary_desc: '基于视频字幕生成 AI 智能总结，快速了解视频核心内容。',
+    ai_generate_summary: '生成 AI 总结',
+    ai_generating: '正在生成总结...',
+    ai_stop: '停止',
+    ai_copy: '复制',
+    ai_regenerate: '重新生成',
+    ai_summary_error: '生成总结失败',
+
+    // Mind Map
+    ai_mindmap_desc: '基于视频内容自动生成结构化思维导图，帮助快速梳理知识结构。',
+    ai_generate_mindmap: '生成思维导图',
+    ai_generating_mindmap: '正在生成思维导图...',
+    ai_mindmap_error: '生成思维导图失败',
+
+    // Chat
+    ai_chat_placeholder: '针对视频内容提问，AI 将基于字幕为你解答。',
+    ai_chat_input: '针对视频内容提问...',
+    ai_thinking: '思考中...',
+    ai_clear_chat: '清除对话',
+    ai_retry: '重试',
+    ai_analyze: 'AI 分析',
+    ai_metadata_notice: '该视频无字幕，AI 分析基于视频标题、简介和标签进行，结果可能不够精确。',
   },
 
   en: {
@@ -127,6 +163,42 @@ export const messages = {
     error_extract: 'Failed to extract video info',
     lang_switch: '中文',
     size_unknown: 'Unknown',
+
+    // AI Panel
+    ai_back: 'Back',
+    ai_title: 'AI Video Analysis',
+    ai_loading_subtitles: 'Extracting subtitles...',
+    ai_subtitle_error: 'Failed to extract subtitles',
+    ai_go_back: 'Go Back',
+    ai_no_subtitles_title: 'No Subtitles Available',
+    ai_no_subtitles_desc: 'AI analysis requires subtitles or auto-generated captions. Please try a different video with subtitles.',
+    ai_tab_summary: 'AI Summary',
+    ai_tab_mindmap: 'Mind Map',
+    ai_tab_chat: 'Ask AI',
+
+    // Summary
+    ai_summary_desc: 'Generate an AI-powered summary from video subtitles to quickly grasp the key content.',
+    ai_generate_summary: 'Generate AI Summary',
+    ai_generating: 'Generating summary...',
+    ai_stop: 'Stop',
+    ai_copy: 'Copy',
+    ai_regenerate: 'Regenerate',
+    ai_summary_error: 'Failed to generate summary',
+
+    // Mind Map
+    ai_mindmap_desc: 'Auto-generate a structured mind map from video content to quickly visualize the knowledge structure.',
+    ai_generate_mindmap: 'Generate Mind Map',
+    ai_generating_mindmap: 'Generating mind map...',
+    ai_mindmap_error: 'Failed to generate mind map',
+
+    // Chat
+    ai_chat_placeholder: 'Ask questions about the video content. AI will answer based on the transcript.',
+    ai_chat_input: 'Ask a question about this video...',
+    ai_thinking: 'Thinking...',
+    ai_clear_chat: 'Clear chat',
+    ai_retry: 'Retry',
+    ai_analyze: 'AI Analyze',
+    ai_metadata_notice: 'No subtitles available. AI analysis is based on video title, description, and tags — results may be less precise.',
   },
 }
 

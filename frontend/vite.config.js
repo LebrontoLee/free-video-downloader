@@ -9,6 +9,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            // Don't buffer SSE streaming endpoints
+            if (req.url.includes('/summary') || req.url.includes('/chat/stream')) {
+              proxyReq.setHeader('Connection', 'keep-alive')
+            }
+          })
+        },
       },
     },
   },

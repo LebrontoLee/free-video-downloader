@@ -6,6 +6,7 @@ import VideoPreview from './components/VideoPreview.vue'
 import DownloadProgress from './components/DownloadProgress.vue'
 import FileList from './components/FileList.vue'
 import ProBanner from './components/ProBanner.vue'
+import AiPanel from './components/AiPanel.vue'
 import messages from './i18n.js'
 
 // ─── i18n ───────────────────────────────────────────────────────────────────
@@ -44,6 +45,14 @@ const download = reactive({
 })
 
 const files = ref([])
+
+// ─── AI State ────────────────────────────────────────────────────────────────
+const aiStatus = reactive({
+  subtitlesStatus: 'idle',   // 'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'
+  subtitlesData: null,
+  subtitlesError: '',
+  activeTab: 'summary',
+})
 
 // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -161,6 +170,37 @@ function handleDownload() {
   startDownload(video.value.webpage_url, selectedFormat.value)
 }
 
+async function openAiPanel() {
+  if (!video.value) return
+  aiStatus.subtitlesStatus = 'loading'
+  aiStatus.subtitlesData = null
+  aiStatus.subtitlesError = ''
+  aiStatus.activeTab = 'summary'
+  view.value = 'ai'
+
+  try {
+    const res = await fetch(`${API_BASE}/api/ai/subtitles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: video.value.webpage_url }),
+    })
+    const data = await res.json()
+    if (data.success && data.data) {
+      aiStatus.subtitlesData = data.data
+      aiStatus.subtitlesStatus = data.data.available !== false ? 'loaded' : 'unavailable'
+    } else {
+      aiStatus.subtitlesStatus = 'unavailable'
+    }
+  } catch (e) {
+    aiStatus.subtitlesStatus = 'error'
+    aiStatus.subtitlesError = t.value.error_network
+  }
+}
+
+function closeAiPanel() {
+  view.value = video.value ? 'preview' : 'hero'
+}
+
 fetchFiles()
 </script>
 
@@ -192,8 +232,21 @@ fetchFiles()
           @select-format="selectedFormat = $event"
           @download="handleDownload"
           @reset="handleReset"
+          @ai-features="openAiPanel"
         />
       </div>
+
+      <!-- AI Panel -->
+      <AiPanel
+        v-if="view === 'ai' && video"
+        :url="video.webpage_url"
+        :video-title="video.title"
+        :subtitles-status="aiStatus.subtitlesStatus"
+        :subtitles-data="aiStatus.subtitlesData"
+        :subtitles-error="aiStatus.subtitlesError"
+        @back="closeAiPanel"
+        @update:active-tab="aiStatus.activeTab = $event"
+      />
 
       <!-- Progress -->
       <DownloadProgress

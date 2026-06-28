@@ -3,7 +3,7 @@ import { ref, computed, inject } from 'vue'
 
 const t = inject('t')
 const props = defineProps({ video: Object, selectedFormat: String, isDownloading: Boolean })
-defineEmits(['select-format', 'download', 'reset'])
+defineEmits(['select-format', 'download', 'reset', 'ai-features'])
 
 const thumbnailFailed = ref(false)
 
@@ -63,6 +63,10 @@ function onThumbnailError() { thumbnailFailed.value = true }
             <span v-else class="spinner-sm"></span>
             {{ isDownloading ? t.preview_downloading : t.preview_download }}
           </button>
+          <button class="ai-btn" @click="$emit('ai-features')">
+            <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            {{ t.ai_analyze }}
+          </button>
           <button class="reset-btn" @click="$emit('reset')">{{ t.preview_new_url }}</button>
         </div>
       </div>
@@ -96,6 +100,8 @@ function onThumbnailError() { thumbnailFailed.value = true }
 .download-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border: none; border-radius: 18px; background: #0071e3; color: #fff; font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
 .download-btn:hover:not(:disabled) { background: #0066cc; }
 .download-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.ai-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 20px; border: 1px solid #d2d2d7; border-radius: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.ai-btn:hover { transform: scale(1.03); box-shadow: 0 4px 20px rgba(102,126,234,0.35); }
 .reset-btn { padding: 14px 20px; border: 1px solid #d2d2d7; border-radius: 18px; background: #fff; color: #0071e3; font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
 .reset-btn:hover { background: #f5f5f7; border-color: #0071e3; }
 .spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
