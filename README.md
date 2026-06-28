@@ -7,7 +7,7 @@
 ## 特性
 
 - 🎬 **多平台下载** — YouTube、Bilibili、抖音（Douyin）等 1700+ 网站
-- 🤖 **AI 视频分析** — 基于 DeepSeek 大模型的视频总结、思维导图、AI 问答
+- 🤖 **AI 视频分析** — 基于 DeepSeek 大模型的视频总结（打字机逐字渲染）、思维导图、AI 问答
 - 📝 **字幕提取** — 自动提取字幕/转录文本（支持 YouTube 自动字幕、B 站 CC 字幕）
 - 🧠 **思维导图** — 自动生成结构化思维导图，支持缩放拖拽、PNG 导出
 - 💬 **AI 问答** — 针对视频内容提问，流式对话回复
@@ -124,9 +124,9 @@ free-video-downloader/
 │           ├── FileList.vue        # 已下载列表
 │           ├── ProBanner.vue       # 付费升级横幅
 │           ├── AiPanel.vue         # AI 功能标签页容器
-│           ├── SummaryCard.vue     # AI 流式总结 + 打字机效果
+│           ├── SummaryCard.vue     # AI 总结（DOM 逐字打字机动画）
 │           ├── MindMap.vue         # SVG 思维导图（可缩放/下载）
-│           └── QAChat.vue          # AI 问答聊天界面
+│           └── QAChat.vue          # AI 问答（DOM 逐字打字机动画）
 └── downloads/                 # 下载存储目录
 ```
 
@@ -178,7 +178,7 @@ free-video-downloader/
 ```
 用户输入 URL → 提取视频信息
   ├─ 字幕提取: yt-dlp writeautomaticsub / B站 CC API
-  ├─ AI 总结: 字幕 → DeepSeek SSE 流式 → 打字机逐字渲染
+  ├─ AI 总结: 字幕 → DeepSeek SSE 流式 → DOM 逐字打字机渲染
   ├─ 思维导图: 字幕 → DeepSeek JSON 模式 → SVG 树可视化
   └─ AI 问答: 字幕 + 用户问题 → DeepSeek 流式回复
 ```

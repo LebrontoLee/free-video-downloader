@@ -1,5 +1,6 @@
 <script setup>
-import { ref, inject, computed } from 'vue'
+import { ref, inject, nextTick } from 'vue'
+
 const t = inject('t')
 const API_BASE = 'http://localhost:8000'
 
@@ -10,11 +11,63 @@ const props = defineProps({
 const messages = ref([])
 const inputText = ref('')
 const isStreaming = ref(false)
-const streamingText = ref('')
 const sessionId = ref(null)
 const errorMsg = ref('')
 const abortController = ref(null)
 const messagesContainer = ref(null)
+
+// ── Typewriter (100% DOM — zero Vue reactivity during streaming) ──────
+let twBuffer = ''
+let twTimer = null
+let twFull = ''
+
+function showCursorDOM(visible) {
+  const el = document.querySelector('.qa-cursor')
+  if (el) el.style.display = visible ? 'inline' : 'none'
+}
+
+function twTypeNext() {
+  if (twBuffer.length === 0) {
+    twTimer = null
+    return
+  }
+  const el = document.querySelector('.qa-streaming .tw-text')
+  if (el) el.textContent += twBuffer[0]
+  twFull += twBuffer[0]
+  twBuffer = twBuffer.slice(1)
+  twTimer = setTimeout(twTypeNext, 80)
+}
+
+function twEnqueue(text) {
+  if (!text) return
+  twBuffer += text
+  if (!twTimer) {
+    showCursorDOM(true)
+    twTypeNext()
+  }
+}
+
+function twSkip() {
+  if (twTimer) { clearTimeout(twTimer); twTimer = null }
+  if (twBuffer) {
+    const el = document.querySelector('.qa-streaming .tw-text')
+    if (el) el.textContent += twBuffer
+  }
+  twFull += twBuffer
+  twBuffer = ''
+  showCursorDOM(false)
+}
+
+function twReset() {
+  if (twTimer) { clearTimeout(twTimer); twTimer = null }
+  twBuffer = ''
+  twFull = ''
+  const el = document.querySelector('.qa-streaming .tw-text')
+  if (el) el.textContent = ''
+  showCursorDOM(false)
+}
+
+function twGetFull() { return twFull + twBuffer }
 
 function scrollToBottom() {
   setTimeout(() => {
@@ -30,15 +83,13 @@ async function sendMessage() {
 
   inputText.value = ''
   errorMsg.value = ''
-  streamingText.value = ''
 
-  // Add user message
   messages.value.push({ id: Date.now(), role: 'user', content: question })
   scrollToBottom()
 
   isStreaming.value = true
+  twReset()
 
-  // Use native EventSource for reliable streaming
   if (abortController.value) {
     abortController.value.abort()
   }
@@ -48,14 +99,14 @@ async function sendMessage() {
 
   es.addEventListener('token', (e) => {
     const data = JSON.parse(e.data)
-    streamingText.value += data.text || ''
+    twEnqueue(data.text || '')
   })
 
   es.addEventListener('done', (e) => {
+    twSkip()
     const data = JSON.parse(e.data)
-    const fullAnswer = data.full_answer || streamingText.value
+    const fullAnswer = data.full_answer || twGetFull()
     messages.value.push({ id: Date.now(), role: 'assistant', content: fullAnswer })
-    streamingText.value = ''
     if (data.session_id) sessionId.value = data.session_id
     isStreaming.value = false
     es.close()
@@ -64,12 +115,13 @@ async function sendMessage() {
 
   es.addEventListener('error', () => {
     if (es.readyState === EventSource.CLOSED) {
-      if (streamingText.value) {
-        messages.value.push({ id: Date.now(), role: 'assistant', content: streamingText.value })
+      showCursorDOM(false)
+      if (twGetFull()) {
+        twSkip()
+        messages.value.push({ id: Date.now(), role: 'assistant', content: twGetFull() })
       } else {
         errorMsg.value = 'Connection failed'
       }
-      streamingText.value = ''
       isStreaming.value = false
       es.close()
     }
@@ -80,10 +132,9 @@ function stopStreaming() {
   if (abortController.value) {
     abortController.value.abort()
   }
-  // Save partial streaming text as message
-  if (streamingText.value.trim()) {
-    messages.value.push({ id: Date.now(), role: 'assistant', content: streamingText.value })
-    streamingText.value = ''
+  if (twGetFull().trim()) {
+    twSkip()
+    messages.value.push({ id: Date.now(), role: 'assistant', content: twGetFull() })
   }
   isStreaming.value = false
 }
@@ -99,14 +150,13 @@ function clearChat() {
   messages.value = []
   sessionId.value = null
   errorMsg.value = ''
+  twReset()
 }
 </script>
 
 <template>
   <div class="qa-chat">
-    <!-- Messages area -->
     <div ref="messagesContainer" class="qa-messages">
-      <!-- Empty state -->
       <div v-if="messages.length === 0 && !isStreaming" class="qa-empty">
         <svg viewBox="0 0 24 24" fill="none" width="36" height="36" opacity="0.2">
           <path d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
@@ -114,26 +164,22 @@ function clearChat() {
         <p>{{ t.ai_chat_placeholder || '针对视频内容提问，AI 将基于字幕为你解答。' }}</p>
       </div>
 
-      <!-- Messages -->
       <div v-for="msg in messages" :key="msg.id" class="qa-message" :class="'qa-' + msg.role">
         <div class="qa-bubble">{{ msg.content }}</div>
       </div>
 
-      <!-- Streaming indicator -->
-      <div v-if="isStreaming && streamingText" class="qa-message qa-assistant">
-        <div class="qa-bubble qa-streaming">{{ streamingText }}<span class="qa-cursor">|</span></div>
-      </div>
-      <div v-else-if="isStreaming && !streamingText" class="qa-message qa-assistant">
-        <div class="qa-bubble qa-thinking">{{ t.ai_thinking || '思考中...' }}</div>
+      <!-- Streaming bubble — direct DOM writes to inner <span> -->
+      <div v-if="isStreaming" class="qa-message qa-assistant">
+        <div class="qa-bubble qa-streaming">
+          <span class="tw-text"></span><span class="qa-cursor" style="display:none">|</span>
+        </div>
       </div>
 
-      <!-- Error -->
-      <div v-if="errorMsg" class="qa-error">
+      <div v-if="!isStreaming && errorMsg" class="qa-error">
         <span>{{ errorMsg }}</span>
       </div>
     </div>
 
-    <!-- Input area -->
     <div class="qa-input-area">
       <input
         v-model="inputText"
@@ -205,13 +251,12 @@ function clearChat() {
   background: var(--color-bg); color: var(--color-text);
   border-bottom-left-radius: 4px;
 }
-.qa-streaming { position: relative; }
+.qa-streaming { position: relative; white-space: pre-wrap; }
 .qa-cursor {
-  animation: cursorBlink 0.8s infinite; color: var(--color-accent); font-weight: 300;
+  animation: typewriterBlink 0.8s infinite; color: var(--color-accent); font-weight: 300;
   margin-left: 1px;
 }
-@keyframes cursorBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-.qa-thinking { opacity: 0.6; font-style: italic; }
+@keyframes typewriterBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 .qa-error {
   align-self: center; padding: 8px 16px;

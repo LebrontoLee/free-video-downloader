@@ -761,6 +761,7 @@ async def generate_summary_endpoint(url: str, style: str = "detailed"):
             for token in client.generate_summary_stream(full_text, style):
                 accumulated.append(token)
                 yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0)  # yield event loop so uvicorn flushes the chunk
             full_summary = "".join(accumulated)
             # Post-process: attach timestamps to key points
             if subs:
@@ -877,6 +878,7 @@ async def chat_stream_endpoint(url: str, question: str, session_id: str = ""):
             for token in client.chat_stream(full_text, history, question):
                 accumulated.append(token)
                 yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0)  # yield event loop so uvicorn flushes the chunk
             full_answer = "".join(accumulated)
             append_to_history(session_id, "assistant", full_answer)
             yield f"event: done\ndata: {json.dumps({'session_id': session_id, 'full_answer': full_answer}, ensure_ascii=False)}\n\n"

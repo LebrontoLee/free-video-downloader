@@ -1,5 +1,6 @@
 <script setup>
 import { ref, inject, nextTick } from 'vue'
+
 const t = inject('t')
 const API_BASE = 'http://localhost:8000'
 
@@ -7,17 +8,75 @@ const props = defineProps({ url: String, subtitlesData: Object })
 
 const status = ref('idle')
 const summaryText = ref('')
-const streamingText = ref('')
 const errorMsg = ref('')
 const scroller = ref(null)
 
 let es = null
 
+// ── Typewriter (100% DOM — zero Vue reactivity during streaming) ──────
+let twBuffer = ''
+let twTimer = null
+let twFull = ''
+
+function showCursorDOM(visible) {
+  const el = document.querySelector('.sc-cursor')
+  if (el) el.style.display = visible ? 'inline' : 'none'
+}
+function showWaitingDOM(visible) {
+  const el = document.querySelector('.sc-waiting')
+  if (el) el.style.display = visible ? '' : 'none'
+}
+
+function twTypeNext() {
+  if (twBuffer.length === 0) {
+    twTimer = null
+    return
+  }
+  const el = document.querySelector('.sc-streaming-text')
+  if (el) el.textContent += twBuffer[0]
+  twFull += twBuffer[0]
+  twBuffer = twBuffer.slice(1)
+  twTimer = setTimeout(twTypeNext, 80)
+}
+
+function twEnqueue(text) {
+  if (!text) return
+  twBuffer += text
+  if (!twTimer) {
+    showWaitingDOM(false)
+    showCursorDOM(true)
+    twTypeNext()
+  }
+}
+
+function twSkip() {
+  if (twTimer) { clearTimeout(twTimer); twTimer = null }
+  if (twBuffer) {
+    const el = document.querySelector('.sc-streaming-text')
+    if (el) el.textContent += twBuffer
+  }
+  twFull += twBuffer
+  twBuffer = ''
+  showCursorDOM(false)
+}
+
+function twReset() {
+  if (twTimer) { clearTimeout(twTimer); twTimer = null }
+  twBuffer = ''
+  twFull = ''
+  const el = document.querySelector('.sc-streaming-text')
+  if (el) el.textContent = ''
+  showCursorDOM(false)
+  showWaitingDOM(true)
+}
+
+function twGetFull() { return twFull + twBuffer }
+
+// ── SSE summary generation ──────────────────────────────────────────────
 async function generateSummary() {
-  // Clean up previous
   if (es) { es.close(); es = null }
+  twReset()
   status.value = 'generating'
-  streamingText.value = ''
   summaryText.value = ''
   errorMsg.value = ''
 
@@ -30,14 +89,12 @@ async function generateSummary() {
     })
   } catch { /* ignore */ }
 
-  // Connect SSE — directly update streamingText, let Vue react
   const qs = `url=${encodeURIComponent(props.url)}&style=detailed`
   es = new EventSource(`${API_BASE}/api/ai/summary?${qs}`)
 
   es.addEventListener('token', async (e) => {
     const text = JSON.parse(e.data).text || ''
-    streamingText.value += text
-    // Scroll to bottom
+    twEnqueue(text)
     await nextTick()
     if (scroller.value) {
       scroller.value.scrollTop = scroller.value.scrollHeight
@@ -45,8 +102,9 @@ async function generateSummary() {
   })
 
   es.addEventListener('done', (e) => {
+    twSkip()
     const data = JSON.parse(e.data)
-    summaryText.value = data.summary || streamingText.value
+    summaryText.value = data.summary || twGetFull()
     status.value = 'done'
     es.close()
     es = null
@@ -54,12 +112,14 @@ async function generateSummary() {
 
   es.onerror = () => {
     if (es.readyState === EventSource.CLOSED) {
+      showCursorDOM(false)
       es.close(); es = null
-      if (!streamingText.value) {
+      if (!twGetFull()) {
         errorMsg.value = 'Connection failed'
         status.value = 'error'
       } else {
-        summaryText.value = streamingText.value
+        twSkip()
+        summaryText.value = twGetFull()
         status.value = 'done'
       }
     }
@@ -68,12 +128,13 @@ async function generateSummary() {
 
 function stopGeneration() {
   if (es) { es.close(); es = null }
-  summaryText.value = streamingText.value || summaryText.value
+  twSkip()
+  summaryText.value = twGetFull() || summaryText.value
   status.value = 'done'
 }
 
 function copySummary() {
-  const t = summaryText.value || streamingText.value || ''
+  const t = summaryText.value || twGetFull() || ''
   navigator.clipboard.writeText(t).catch(() => {})
 }
 
@@ -105,8 +166,8 @@ function renderMarkdown(text) {
     <!-- Generating -->
     <div v-else-if="status === 'generating'" class="sc-generating">
       <div ref="scroller" class="sc-streaming-content">
-        <pre class="sc-streaming-text">{{ streamingText }}</pre><span v-if="streamingText" class="sc-cursor">|</span>
-        <span v-if="!streamingText" class="sc-waiting">⏳ {{ t.ai_generating || '正在生成总结...' }}</span>
+        <pre class="sc-streaming-text"></pre><span class="sc-cursor" style="display:none">|</span>
+        <span class="sc-waiting">⏳ {{ t.ai_generating || '正在生成总结...' }}</span>
       </div>
       <button class="sc-stop-btn" @click="stopGeneration">{{ t.ai_stop || '停止生成' }}</button>
     </div>
@@ -152,9 +213,12 @@ function renderMarkdown(text) {
   padding: 20px; background: var(--color-bg); border-radius: var(--radius-sm);
   font-size: 15px; line-height: 1.7; min-height: 100px; max-height: 50vh; overflow-y: auto;
 }
-.sc-streaming-text { white-space: pre-wrap; word-break: break-word; margin: 0; font-family: var(--font-system); }
-.sc-cursor { color: var(--color-accent); font-weight: 300; animation: blink 0.7s infinite; }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.sc-streaming-text { white-space: pre-wrap; word-break: break-word; margin: 0; font-family: var(--font-system); display: inline; }
+.sc-cursor {
+  color: var(--color-accent); font-weight: 300;
+  animation: typewriterBlink 0.7s infinite;
+}
+@keyframes typewriterBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 .sc-waiting { color: var(--color-text-sub); animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
