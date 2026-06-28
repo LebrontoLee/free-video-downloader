@@ -22,15 +22,17 @@ function useExample(u) { url.value = u; emit('extract', u) }
 </script>
 
 <template>
-  <section class="hero section" :class="{ 'hero-compact': compact }">
+  <section class="hero">
     <div class="container">
-      <template v-if="!compact">
-        <h1 class="hero-title reveal">{{ t.hero_title }}</h1>
-        <p class="hero-subtitle reveal">{{ t.hero_sub }}</p>
-      </template>
+      <!-- Top content — collapses smoothly, search bar stays anchored below -->
+      <div class="hero-top" :class="{ collapsed: compact }">
+        <h1 class="hero-title">{{ t.hero_title }}</h1>
+        <p class="hero-subtitle">{{ t.hero_sub }}</p>
+      </div>
 
-      <div class="input-group" :class="{ 'is-loading': loading }">
-        <div class="input-wrapper glass" :class="{ 'input-compact': compact }">
+      <!-- Search bar — always at the same position regardless of compact mode -->
+      <div class="search-area" :class="{ 'is-loading': loading }">
+        <div class="input-wrapper glass">
           <svg class="input-icon" viewBox="0 0 24 24" fill="none" width="20" height="20">
             <path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -48,39 +50,60 @@ function useExample(u) { url.value = u; emit('extract', u) }
         </div>
       </div>
 
-      <template v-if="!compact">
-        <div class="trust-signals reveal">
+      <!-- Bottom content — collapses smoothly -->
+      <div class="hero-bottom" :class="{ collapsed: compact }">
+        <div class="trust-signals">
           <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_1 }}</div>
           <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_2 }}</div>
           <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_3 }}</div>
         </div>
 
-        <div class="examples reveal">
+        <div class="examples">
           <span class="examples-label">{{ t.hero_examples }}</span>
           <button v-for="ex in examples" :key="ex.label" class="example-chip" @click="useExample(ex.url)">{{ ex.label }}</button>
         </div>
-      </template>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.hero { text-align: center; padding-top: 108px; padding-bottom: 72px; transition: padding 0.4s var(--ease-out); }
-.hero-compact { padding-top: 20px; padding-bottom: 20px; }
-.hero-compact .input-group { max-width: 600px; margin-bottom: 0; }
-.input-compact .url-input { padding: 11px 44px 11px 44px; font-size: 15px; }
-.input-compact .input-icon { left: 14px; width: 16px; height: 16px; }
-.input-compact .submit-btn { width: 32px; height: 32px; right: 6px; }
-.input-compact .submit-btn svg { width: 14px; height: 14px; }
+/* ── Section base — padding-top is the anchor: same in both modes ──────── */
+.hero {
+  text-align: center;
+  padding-top: 88px;   /* nav 48px + 40px breathing room */
+  padding-bottom: 40px;
+}
+
+/* ── Collapsible top (title + subtitle) ─────────────────────────────────── */
+.hero-top {
+  max-height: 200px;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height 0.45s var(--ease-out),
+              opacity 0.35s var(--ease-out);
+}
+.hero-top.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
 .hero-title {
   font-size: 64px; font-weight: 700; letter-spacing: -0.031em; line-height: 1.0625;
-  color: #1d1d1f; margin-bottom: 20px;
+  color: #1d1d1f; margin-bottom: 16px;
   background: linear-gradient(135deg, #1d1d1f 0%, #3a3a3c 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-.hero-subtitle { font-size: 21px; font-weight: 400; line-height: 1.381; color: #6e6e73; margin-bottom: 48px; }
-.input-group { max-width: 620px; margin: 0 auto 32px; }
+.hero-subtitle {
+  font-size: 21px; font-weight: 400; line-height: 1.381;
+  color: #6e6e73; padding-bottom: 28px;
+}
+
+/* ── Search bar — fixed position, never moves ──────────────────────────── */
+.search-area {
+  max-width: 620px;
+  margin: 0 auto 24px;
+}
 .input-wrapper {
   position: relative; display: flex; align-items: center;
   background: rgba(255, 255, 255, 0.78);
@@ -113,8 +136,22 @@ function useExample(u) { url.value = u; emit('extract', u) }
 .submit-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.is-loading .input-wrapper { opacity: 0.7; pointer-events: none; }
 
-.trust-signals { display: flex; justify-content: center; gap: 48px; margin-bottom: 28px; flex-wrap: wrap; }
+/* ── Collapsible bottom (trust + examples) ──────────────────────────────── */
+.hero-bottom {
+  max-height: 120px;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height 0.45s var(--ease-out),
+              opacity 0.35s var(--ease-out);
+}
+.hero-bottom.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.trust-signals { display: flex; justify-content: center; gap: 48px; margin-bottom: 24px; flex-wrap: wrap; }
 .trust-item { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #6e6e73; }
 .trust-item svg { color: #34c759; flex-shrink: 0; }
 
@@ -128,13 +165,14 @@ function useExample(u) { url.value = u; emit('extract', u) }
   transition: all 0.25s;
 }
 .example-chip:hover { background: rgba(0,113,227,0.1); border-color: #0071e3; transform: translateY(-1px); }
-.is-loading .input-wrapper { opacity: 0.7; pointer-events: none; }
 
+/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .hero { padding-top: 72px; padding-bottom: 48px; }
+  .hero { padding-top: 72px; }
+  .hero-top { max-height: 160px; }
   .hero-title { font-size: 40px; }
-  .hero-subtitle { font-size: 17px; margin-bottom: 32px; }
-  .input-group { max-width: 100%; }
+  .hero-subtitle { font-size: 17px; padding-bottom: 20px; }
+  .search-area { max-width: 100%; }
   .url-input { font-size: 16px; padding: 14px 48px 14px 44px; }
   .trust-signals { gap: 20px; }
 }

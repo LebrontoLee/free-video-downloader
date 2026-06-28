@@ -82,7 +82,7 @@ async function handleExtract(url) {
     setTimeout(() => {
       const el = document.getElementById('preview-section')
       if (!el) return
-      const top = el.getBoundingClientRect().top + window.scrollY - 140
+      const top = el.getBoundingClientRect().top + window.scrollY - 200
       window.scrollTo({ top, behavior: 'smooth' })
     }, 200)
   } catch {
