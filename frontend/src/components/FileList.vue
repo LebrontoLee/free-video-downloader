@@ -14,7 +14,7 @@ function formatDate(iso) {
 <template>
   <section v-if="files.length > 0" class="section">
     <div class="container">
-      <div class="files-card card animate-in">
+      <div class="files-card card glass reveal">
         <div class="files-header">
           <h3 class="files-title">{{ t.files_title }}</h3>
           <button class="refresh-btn" @click="$emit('refresh')" title="Refresh">
@@ -41,11 +41,11 @@ function formatDate(iso) {
 </template>
 
 <style scoped>
-.files-card { padding: 24px 40px; }
+.files-card { padding: 28px 40px; }
 .files-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .files-title { font-size: 15px; font-weight: 600; color: #1d1d1f; }
-.refresh-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid #e8e8ed; border-radius: 12px; background: #fff; color: #6e6e73; cursor: pointer; transition: all 0.2s; }
-.refresh-btn:hover { background: #f5f5f7; color: #1d1d1f; }
+.refresh-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; background: rgba(255,255,255,0.5); color: #6e6e73; cursor: pointer; transition: all 0.2s; }
+.refresh-btn:hover { background: rgba(255,255,255,0.8); color: #1d1d1f; }
 .files-list { list-style: none; }
 .file-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid #e8e8ed; }
 .file-row:last-child { border-bottom: none; }

@@ -36,12 +36,12 @@ defineEmits(['reset', 'toggleLang'])
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   height: 48px;
   background: rgba(245, 245, 247, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 .nav-inner {
-  max-width: 800px; margin: 0 auto; padding: 0 24px;
+  max-width: 1020px; margin: 0 auto; padding: 0 24px;
   height: 100%; display: flex; align-items: center; justify-content: space-between;
 }
 .nav-logo { display: flex; align-items: center; gap: 8px; color: #1d1d1f; font-size: 17px; font-weight: 600; letter-spacing: -0.022em; text-decoration: none; transition: opacity 0.2s; }

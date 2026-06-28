@@ -28,10 +28,10 @@ function setTab(tab) {
 <template>
   <section class="section">
     <div class="container">
-      <div class="ai-panel card animate-in">
+      <div class="ai-panel card glass reveal">
         <!-- Header -->
         <div class="ai-header">
-          <button class="ai-back-btn" @click="$emit('back')">
+          <button class="ai-back-btn glass" @click="$emit('back')">
             <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
               <path d="M19 12H5m0 0l7 7m-7-7l7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -57,11 +57,11 @@ function setTab(tab) {
 
         <!-- No subtitles available -->
         <div v-else-if="subtitlesStatus === 'unavailable'" class="ai-message ai-message-empty">
-          <svg viewBox="0 0 24 24" fill="none" width="40" height="40" opacity="0.3">
+          <svg viewBox="0 0 24 24" fill="none" width="44" height="44" opacity="0.2">
             <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9m1.5-4.5H9m6-3H9m7.5 12.75h-9A2.25 2.25 0 016.75 19.5V4.5A2.25 2.25 0 019 2.25h6.75a2.25 2.25 0 012.25 2.25v15a2.25 2.25 0 01-2.25 2.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <h3>{{ t.ai_no_subtitles_title || '该视频暂无字幕' }}</h3>
-          <p>{{ t.ai_no_subtitles_desc || 'AI 分析功能需要视频字幕或自动生成的字幕才能工作。请尝试其他视频。' }}</p>
+          <p>{{ t.ai_no_subtitles_desc || 'AI 分析功能需要视频字幕或自动生成的字幕才能工作。请尝试其他有字幕的视频。' }}</p>
           <button class="ai-retry-btn" @click="$emit('back')">{{ t.ai_go_back || '返回' }}</button>
         </div>
 
@@ -131,17 +131,15 @@ function setTab(tab) {
 </template>
 
 <style scoped>
-.ai-panel {
-  padding: 32px 40px;
-}
+.ai-panel { padding: 36px 44px; }
 
 .ai-header {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
 .ai-back-btn {
@@ -149,20 +147,23 @@ function setTab(tab) {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 8px 14px;
-  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  border: 1px solid rgba(0,0,0,0.06);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--color-accent);
   font-family: var(--font-system);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: all 0.25s var(--ease-out);
 }
 .ai-back-btn:hover {
-  background: var(--color-bg);
+  background: rgba(255,255,255,0.7);
   border-color: var(--color-accent);
+  transform: translateX(-2px);
 }
 
 .ai-header-info {
@@ -170,7 +171,7 @@ function setTab(tab) {
   min-width: 0;
 }
 .ai-header-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.022em;
   color: var(--color-text);
@@ -205,7 +206,9 @@ function setTab(tab) {
 .ai-metadata-notice {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 16px; margin-bottom: 16px;
-  background: #fff8e1; border: 1px solid #ffe082;
+  background: rgba(255, 248, 225, 0.6);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 224, 130, 0.5);
   border-radius: var(--radius-sm);
   font-size: 13px; color: #8d6e00;
 }
@@ -216,31 +219,33 @@ function setTab(tab) {
   padding: 56px 24px;
 }
 .ai-message h3 {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 8px;
 }
 .ai-message p {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-text-sub);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 .ai-retry-btn {
   display: inline-flex;
-  padding: 10px 20px;
-  border: 1px solid var(--color-border);
+  padding: 10px 22px;
+  border: 1px solid rgba(0,0,0,0.08);
   border-radius: var(--radius-full);
-  background: var(--color-surface);
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--color-accent);
   font-family: var(--font-system);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: all 0.25s var(--ease-out);
 }
 .ai-retry-btn:hover {
-  background: var(--color-bg);
+  background: rgba(255,255,255,0.8);
   border-color: var(--color-accent);
 }
 
@@ -249,9 +254,9 @@ function setTab(tab) {
   display: flex;
   gap: 4px;
   padding: 4px;
-  background: var(--color-bg);
+  background: rgba(0,0,0,0.03);
   border-radius: var(--radius-sm);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   overflow-x: auto;
 }
 .ai-tab {
@@ -260,32 +265,35 @@ function setTab(tab) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: 5px;
+  padding: 10px 14px;
   border: none;
   border-radius: 10px;
   background: transparent;
   color: var(--color-text-sub);
   font-family: var(--font-system);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: all 0.25s var(--ease-out);
   white-space: nowrap;
 }
 .ai-tab.active {
-  background: var(--color-surface);
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--color-text);
   box-shadow: var(--shadow-sm);
 }
 .ai-tab:hover:not(.active) {
   color: var(--color-text);
+  background: rgba(255,255,255,0.4);
 }
 
 @media (max-width: 600px) {
-  .ai-panel { padding: 24px 16px; }
+  .ai-panel { padding: 24px 20px; }
   .ai-header { flex-direction: column; }
-  .ai-tab { font-size: 12px; padding: 8px 6px; gap: 2px; }
+  .ai-tab { font-size: 12px; padding: 8px 6px; gap: 3px; }
   .ai-tab svg { width: 14px; height: 14px; }
 }
 </style>

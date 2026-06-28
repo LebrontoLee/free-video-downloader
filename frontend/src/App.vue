@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, provide, computed } from 'vue'
+import { ref, reactive, provide, computed, onMounted } from 'vue'
 import NavBar from './components/NavBar.vue'
 import HeroSection from './components/HeroSection.vue'
 import VideoPreview from './components/VideoPreview.vue'
@@ -202,6 +202,35 @@ function closeAiPanel() {
 }
 
 fetchFiles()
+
+// ─── Scroll-triggered reveal animation ────────────────────────────────────
+onMounted(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible')
+          observer.unobserve(entry.target)
+        }
+      })
+    },
+    { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+  )
+
+  // Observe existing .reveal elements
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el))
+
+  // Re-scan for dynamically added .reveal elements (e.g., after view switches)
+  const mutationObserver = new MutationObserver(() => {
+    document.querySelectorAll('.reveal:not(.is-visible)').forEach((el) => {
+      if (!el.dataset.revealObserved) {
+        el.dataset.revealObserved = '1'
+        observer.observe(el)
+      }
+    })
+  })
+  mutationObserver.observe(document.body, { childList: true, subtree: true })
+})
 </script>
 
 <template>
@@ -264,7 +293,7 @@ fetchFiles()
     </main>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer glass">
       <div class="container">
         <p class="footer-text">
           {{ t.footer_powered }} <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a>
@@ -292,10 +321,14 @@ fetchFiles()
 .error-dismiss:hover { opacity: 1; }
 
 .footer {
-  margin-top: auto; padding: 40px 0; text-align: center;
-  border-top: 1px solid #e8e8ed;
+  margin-top: auto; padding: 48px 0; text-align: center;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  background: rgba(245, 245, 247, 0.6);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
 }
-.footer-text { font-size: 13px; color: #6e6e73; margin-bottom: 6px; }
-.footer-text a { color: #6e6e73; text-decoration: underline; }
+.footer-text { font-size: 14px; color: #6e6e73; margin-bottom: 6px; }
+.footer-text a { color: #6e6e73; text-decoration: underline; transition: color 0.2s; }
+.footer-text a:hover { color: #1d1d1f; }
 .footer-copy { font-size: 12px; color: #86868b; }
 </style>

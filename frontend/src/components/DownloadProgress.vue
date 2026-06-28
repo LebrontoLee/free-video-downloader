@@ -20,7 +20,7 @@ const etaDisplay = computed(() => {
 <template>
   <section class="section">
     <div class="container">
-      <div class="progress-card card animate-in" :class="{ 'progress-complete': isComplete }">
+      <div class="progress-card card glass reveal" :class="{ 'progress-complete': isComplete }">
         <div class="progress-header">
           <div class="progress-status">
             <template v-if="isDownloading">

@@ -18,12 +18,12 @@ function onThumbnailError() { thumbnailFailed.value = true }
 <template>
   <section class="section">
     <div class="container">
-      <div class="preview-card card animate-in">
+      <div class="preview-card card glass reveal">
         <div class="preview-header">
           <div class="thumbnail-wrap">
             <img v-if="video.thumbnail && !thumbnailFailed" :src="thumbnailProxyUrl" :alt="video.title" class="thumbnail" referrerpolicy="no-referrer" @error="onThumbnailError" />
             <div v-if="!video.thumbnail || thumbnailFailed" class="thumbnail-placeholder">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="36" height="36" opacity="0.3"><path d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h8.25a3 3 0 003-3v-9a3 3 0 00-3-3H4.5zM19.94 18.75l-2.69-2.69V7.94l2.69-2.69c.944-.945 2.56-.276 2.56 1.06v11.38c0 1.336-1.616 2.005-2.56 1.06z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40" opacity="0.25"><path d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h8.25a3 3 0 003-3v-9a3 3 0 00-3-3H4.5zM19.94 18.75l-2.69-2.69V7.94l2.69-2.69c.944-.945 2.56-.276 2.56 1.06v11.38c0 1.336-1.616 2.005-2.56 1.06z"/></svg>
             </div>
           </div>
           <div class="preview-info">
@@ -46,7 +46,7 @@ function onThumbnailError() { thumbnailFailed.value = true }
           <h3 class="format-label">{{ t.preview_quality }}</h3>
           <div class="format-grid">
             <button v-for="fmt in video.formats" :key="fmt.format_id"
-              class="format-chip"
+              class="format-chip glass"
               :class="{ 'format-active': selectedFormat === fmt.format_id, 'format-audio': fmt.note === 'audio' }"
               :disabled="isDownloading"
               @click="$emit('select-format', fmt.format_id)">
@@ -75,39 +75,43 @@ function onThumbnailError() { thumbnailFailed.value = true }
 </template>
 
 <style scoped>
-.preview-card { padding: 40px; }
-.preview-header { display: flex; gap: 24px; margin-bottom: 24px; }
-.thumbnail-wrap { flex-shrink: 0; width: 200px; height: 112px; border-radius: 12px; overflow: hidden; background: #f0f0f0; }
-.thumbnail { width: 100%; height: 100%; object-fit: cover; }
-.thumbnail-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8e8ed, #d2d2d7); color: #6e6e73; }
-.preview-info { flex: 1; min-width: 0; }
-.video-title { font-size: 19px; font-weight: 600; letter-spacing: -0.022em; line-height: 1.3; color: #1d1d1f; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.video-meta { display: flex; flex-wrap: wrap; gap: 12px; }
-.meta-item { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #6e6e73; }
-.meta-platform { text-transform: capitalize; font-weight: 500; color: #86868b; background: #f5f5f7; padding: 2px 8px; border-radius: 4px; }
-.format-section { border-top: 1px solid #e8e8ed; padding-top: 24px; }
-.format-label { font-size: 13px; font-weight: 600; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
-.format-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-.format-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 12px; border: 2px solid #e8e8ed; border-radius: 12px; background: #fff; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-.format-chip:hover:not(:disabled) { border-color: #0071e3; background: rgba(0,113,227,0.03); }
+.preview-card { padding: 40px 44px; }
+.preview-header { display: flex; gap: 28px; margin-bottom: 28px; }
+.thumbnail-wrap { flex-shrink: 0; width: 220px; height: 124px; border-radius: 14px; overflow: hidden; background: #f0f0f0; }
+.thumbnail { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s var(--ease-out); }
+.thumbnail-wrap:hover .thumbnail { transform: scale(1.03); }
+.thumbnail-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8e8ed, #d2d2d7); }
+.preview-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.video-title { font-size: 21px; font-weight: 600; letter-spacing: -0.022em; line-height: 1.3; color: #1d1d1f; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.video-meta { display: flex; flex-wrap: wrap; gap: 14px; }
+.meta-item { display: flex; align-items: center; gap: 5px; font-size: 14px; color: #6e6e73; }
+.meta-platform { text-transform: capitalize; font-weight: 500; color: #86868b; background: rgba(0,0,0,0.04); padding: 3px 10px; border-radius: 6px; }
+
+.format-section { border-top: 1px solid rgba(0,0,0,0.06); padding-top: 28px; }
+.format-label { font-size: 13px; font-weight: 600; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 18px; }
+.format-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.format-chip { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 16px 12px; border: 1px solid rgba(0,0,0,0.06); border-radius: 14px; background: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.25s var(--ease-out); font-family: inherit; }
+.format-chip:hover:not(:disabled) { border-color: #0071e3; background: rgba(0,113,227,0.04); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
 .format-chip:disabled { opacity: 0.5; cursor: not-allowed; }
-.format-active { border-color: #0071e3; background: rgba(0,113,227,0.06); box-shadow: 0 0 0 1px #0071e3; }
-.fmt-resolution { font-size: 20px; font-weight: 700; color: #1d1d1f; letter-spacing: -0.022em; }
-.format-audio .fmt-resolution { font-size: 17px; }
+.format-active { border-color: #0071e3; background: rgba(0,113,227,0.06); box-shadow: 0 0 0 1px #0071e3, 0 4px 16px rgba(0,113,227,0.1); }
+.fmt-resolution { font-size: 22px; font-weight: 700; color: #1d1d1f; letter-spacing: -0.022em; }
+.format-audio .fmt-resolution { font-size: 18px; }
 .fmt-detail { font-size: 12px; color: #6e6e73; }
-.fmt-badge { font-size: 10px; font-weight: 500; color: #86868b; background: #f5f5f7; padding: 1px 6px; border-radius: 4px; margin-top: 2px; }
-.preview-actions { display: flex; gap: 16px; margin-top: 24px; padding-top: 24px; border-top: 1px solid #e8e8ed; }
-.download-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border: none; border-radius: 18px; background: #0071e3; color: #fff; font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-.download-btn:hover:not(:disabled) { background: #0066cc; }
+.fmt-badge { font-size: 10px; font-weight: 500; color: #86868b; background: rgba(0,0,0,0.04); padding: 2px 7px; border-radius: 4px; margin-top: 3px; }
+
+.preview-actions { display: flex; gap: 16px; margin-top: 28px; padding-top: 28px; border-top: 1px solid rgba(0,0,0,0.06); }
+.download-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 28px; border: none; border-radius: 18px; background: #0071e3; color: #fff; font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s var(--ease-out); }
+.download-btn:hover:not(:disabled) { background: #0066cc; transform: scale(1.02); box-shadow: 0 4px 20px rgba(0,113,227,0.3); }
 .download-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-.ai-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 20px; border: 1px solid #d2d2d7; border-radius: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.ai-btn:hover { transform: scale(1.03); box-shadow: 0 4px 20px rgba(102,126,234,0.35); }
-.reset-btn { padding: 14px 20px; border: 1px solid #d2d2d7; border-radius: 18px; background: #fff; color: #0071e3; font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-.reset-btn:hover { background: #f5f5f7; border-color: #0071e3; }
-.spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+.ai-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 15px 22px; border: none; border-radius: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.25s var(--ease-out); }
+.ai-btn:hover { transform: scale(1.03); box-shadow: 0 8px 28px rgba(102,126,234,0.35); }
+.reset-btn { padding: 15px 22px; border: 1px solid rgba(0,0,0,0.08); border-radius: 18px; background: rgba(255,255,255,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #0071e3; font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.25s var(--ease-out); }
+.reset-btn:hover { background: rgba(255,255,255,0.8); border-color: #0071e3; transform: translateY(-1px); }
+.spinner-sm { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 600px) {
+  .preview-card { padding: 24px 20px; }
   .preview-header { flex-direction: column; }
   .thumbnail-wrap { width: 100%; height: auto; aspect-ratio: 16/9; }
   .format-grid { grid-template-columns: repeat(2, 1fr); }

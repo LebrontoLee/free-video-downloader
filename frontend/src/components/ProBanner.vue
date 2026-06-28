@@ -7,7 +7,7 @@ const t = inject('t')
 <template>
   <section class="section">
     <div class="container">
-      <div class="pro-card animate-in">
+      <div class="pro-card reveal">
         <div class="pro-badge">{{ t.pro_badge }}</div>
         <h2 class="pro-title">{{ t.pro_title }}</h2>
         <p class="pro-desc">{{ t.pro_desc }}</p>
