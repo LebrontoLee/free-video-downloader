@@ -2,7 +2,7 @@
 import { ref, inject } from 'vue'
 
 const t = inject('t')
-const props = defineProps({ loading: Boolean })
+const props = defineProps({ loading: Boolean, compact: Boolean })
 const emit = defineEmits(['extract'])
 const url = ref('')
 
@@ -22,20 +22,22 @@ function useExample(u) { url.value = u; emit('extract', u) }
 </script>
 
 <template>
-  <section class="hero section">
+  <section class="hero section" :class="{ 'hero-compact': compact }">
     <div class="container">
-      <h1 class="hero-title reveal">{{ t.hero_title }}</h1>
-      <p class="hero-subtitle reveal">{{ t.hero_sub }}</p>
+      <template v-if="!compact">
+        <h1 class="hero-title reveal">{{ t.hero_title }}</h1>
+        <p class="hero-subtitle reveal">{{ t.hero_sub }}</p>
+      </template>
 
-      <div class="input-group reveal" :class="{ 'is-loading': loading }">
-        <div class="input-wrapper glass">
+      <div class="input-group" :class="{ 'is-loading': loading }">
+        <div class="input-wrapper glass" :class="{ 'input-compact': compact }">
           <svg class="input-icon" viewBox="0 0 24 24" fill="none" width="20" height="20">
             <path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <input
             v-model="url" type="url" class="url-input"
             :placeholder="t.hero_placeholder"
-            @keydown.enter="handleSubmit" autofocus
+            @keydown.enter="handleSubmit"
           />
           <button class="submit-btn" :disabled="loading || !url.trim()" @click="handleSubmit">
             <span v-if="loading" class="spinner"></span>
@@ -46,22 +48,30 @@ function useExample(u) { url.value = u; emit('extract', u) }
         </div>
       </div>
 
-      <div class="trust-signals reveal">
-        <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_1 }}</div>
-        <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_2 }}</div>
-        <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_3 }}</div>
-      </div>
+      <template v-if="!compact">
+        <div class="trust-signals reveal">
+          <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_1 }}</div>
+          <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_2 }}</div>
+          <div class="trust-item"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>{{ t.hero_trust_3 }}</div>
+        </div>
 
-      <div class="examples reveal">
-        <span class="examples-label">{{ t.hero_examples }}</span>
-        <button v-for="ex in examples" :key="ex.label" class="example-chip" @click="useExample(ex.url)">{{ ex.label }}</button>
-      </div>
+        <div class="examples reveal">
+          <span class="examples-label">{{ t.hero_examples }}</span>
+          <button v-for="ex in examples" :key="ex.label" class="example-chip" @click="useExample(ex.url)">{{ ex.label }}</button>
+        </div>
+      </template>
     </div>
   </section>
 </template>
 
 <style scoped>
-.hero { text-align: center; padding-top: 108px; padding-bottom: 72px; }
+.hero { text-align: center; padding-top: 108px; padding-bottom: 72px; transition: padding 0.4s var(--ease-out); }
+.hero-compact { padding-top: 20px; padding-bottom: 20px; }
+.hero-compact .input-group { max-width: 600px; margin-bottom: 0; }
+.input-compact .url-input { padding: 11px 44px 11px 44px; font-size: 15px; }
+.input-compact .input-icon { left: 14px; width: 16px; height: 16px; }
+.input-compact .submit-btn { width: 32px; height: 32px; right: 6px; }
+.input-compact .submit-btn svg { width: 14px; height: 14px; }
 .hero-title {
   font-size: 64px; font-weight: 700; letter-spacing: -0.031em; line-height: 1.0625;
   color: #1d1d1f; margin-bottom: 20px;

@@ -238,7 +238,7 @@ onMounted(() => {
     <NavBar :lang="lang" @reset="handleReset" @toggle-lang="toggleLang" />
 
     <main class="main">
-      <HeroSection :loading="isLoading" @extract="handleExtract" />
+      <HeroSection :loading="isLoading" :compact="view !== 'hero'" @extract="handleExtract" />
 
       <!-- Error -->
       <div v-if="error" class="container">
