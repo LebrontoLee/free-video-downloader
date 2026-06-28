@@ -91,6 +91,11 @@ export const messages = {
     ai_generate_mindmap: '生成思维导图',
     ai_generating_mindmap: '正在生成思维导图...',
     ai_mindmap_error: '生成思维导图失败',
+    ai_mindmap_download_svg: '下载 SVG 矢量图',
+    ai_mindmap_download_png: '下载 PNG 高清图',
+    ai_mindmap_fullscreen: '全屏展示',
+    ai_mindmap_exit_fullscreen: '退出全屏',
+    ai_mindmap_fit: '适应屏幕',
 
     // Chat
     ai_chat_placeholder: '针对视频内容提问，AI 将基于字幕为你解答。',
@@ -190,6 +195,11 @@ export const messages = {
     ai_generate_mindmap: 'Generate Mind Map',
     ai_generating_mindmap: 'Generating mind map...',
     ai_mindmap_error: 'Failed to generate mind map',
+    ai_mindmap_download_svg: 'Download SVG',
+    ai_mindmap_download_png: 'Download PNG',
+    ai_mindmap_fullscreen: 'Fullscreen',
+    ai_mindmap_exit_fullscreen: 'Exit Fullscreen',
+    ai_mindmap_fit: 'Fit to Screen',
 
     // Chat
     ai_chat_placeholder: 'Ask questions about the video content. AI will answer based on the transcript.',
