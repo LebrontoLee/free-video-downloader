@@ -3,6 +3,7 @@ import { ref, inject, computed } from 'vue'
 import SummaryCard from './SummaryCard.vue'
 import MindMap from './MindMap.vue'
 import QAChat from './QAChat.vue'
+import SubtitleViewer from './SubtitleViewer.vue'
 
 const t = inject('t')
 
@@ -94,6 +95,13 @@ function setTab(tab) {
               <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 001.28.53l3.58-3.579a.78.78 0 01.527-.224 41.202 41.202 0 005.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2z" clip-rule="evenodd"/></svg>
               {{ t.ai_tab_chat || 'AI 问答' }}
             </button>
+            <button
+              class="ai-tab" :class="{ active: activeTab === 'subtitles' }"
+              @click="setTab('subtitles')"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zm0 3.5a.75.75 0 01.75-.75h2a.75.75 0 010 1.5H5a.75.75 0 01-.75-.75zm0 3a.75.75 0 01.75-.75h4a.75.75 0 010 1.5H5a.75.75 0 01-.75-.75zm0 3a.75.75 0 01.75-.75h6a.75.75 0 010 1.5H5a.75.75 0 01-.75-.75zM13 5.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h1.5a.75.75 0 000-1.5h-1.5z" clip-rule="evenodd"/></svg>
+              {{ t.ai_tab_subtitles || '字幕文本' }}
+            </button>
           </div>
 
           <!-- Tab content -->
@@ -110,6 +118,10 @@ function setTab(tab) {
             <QAChat
               v-else-if="activeTab === 'chat'"
               :url="url"
+            />
+            <SubtitleViewer
+              v-else-if="activeTab === 'subtitles'"
+              :subtitles-data="subtitlesData"
             />
           </div>
         </template>
@@ -240,23 +252,26 @@ function setTab(tab) {
   background: var(--color-bg);
   border-radius: var(--radius-sm);
   margin-bottom: 20px;
+  overflow-x: auto;
 }
 .ai-tab {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 4px;
+  padding: 10px 12px;
   border: none;
   border-radius: 10px;
   background: transparent;
   color: var(--color-text-sub);
   font-family: var(--font-system);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
 }
 .ai-tab.active {
   background: var(--color-surface);
@@ -270,6 +285,7 @@ function setTab(tab) {
 @media (max-width: 600px) {
   .ai-panel { padding: 24px 16px; }
   .ai-header { flex-direction: column; }
-  .ai-tab { font-size: 13px; padding: 8px 10px; }
+  .ai-tab { font-size: 12px; padding: 8px 6px; gap: 2px; }
+  .ai-tab svg { width: 14px; height: 14px; }
 }
 </style>

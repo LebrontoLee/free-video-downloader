@@ -9,9 +9,10 @@
 - 🎬 **多平台下载** — YouTube、Bilibili、抖音（Douyin）等 1700+ 网站
 - 🤖 **AI 视频分析** — 基于 DeepSeek 大模型的视频总结（打字机逐字渲染）、思维导图、AI 问答
 - 📝 **字幕提取** — 自动提取字幕/转录文本（支持 YouTube 自动字幕、B 站 CC 字幕）
+- 📄 **字幕文本查看器** — 时间戳排序显示、搜索过滤、正序/倒序切换、一键复制、SRT/TXT 格式下载
 - 🧠 **思维导图** — AI 自动生成结构化思维导图，基于 markmap (D3.js) 渲染，支持缩放拖拽、节点折叠、全屏展示、SVG/PNG 高清导出
 - 💬 **AI 问答** — 针对视频内容提问，流式对话回复
-- 🍎 **Apple 风格 UI** — 极简高级设计，Vue 3 + Vite 前端
+- 🍎 **Apple 风格 UI** — 极简高级设计，Vue 3 + Vite 前端，marked 渲染 Markdown 内容
 - 🇨🇳 **中文优先** — 默认中文界面，一键切换 English
 - 🎯 **抖音免登录** — Playwright 自动获取 cookie，无需用户操作
 - 📊 **实时进度** — SSE 流式推送下载进度
@@ -23,7 +24,7 @@
 | 层 | 技术 |
 |---|---|
 | 后端 | Python FastAPI + yt-dlp + Playwright + DeepSeek API |
-| 前端 | Vue 3 + Vite + markmap (D3.js 思维导图) |
+| 前端 | Vue 3 + Vite + markmap (D3.js 思维导图) + marked (Markdown 渲染) |
 | 通信 | REST API + SSE 进度推送 + EventSource 流式 |
 | AI | DeepSeek V4 Pro（OpenAI 兼容 SDK） |
 | 设计 | Apple 风格设计 Token |
@@ -124,7 +125,8 @@ free-video-downloader/
 │           ├── FileList.vue        # 已下载列表
 │           ├── ProBanner.vue       # 付费升级横幅
 │           ├── AiPanel.vue         # AI 功能标签页容器
-│           ├── SummaryCard.vue     # AI 总结（DOM 逐字打字机动画）
+│           ├── SummaryCard.vue     # AI 总结（DOM 逐字打字机 + marked 渲染 Markdown）
+│           ├── SubtitleViewer.vue  # 字幕文本查看器（时间戳、搜索、排序、SRT/TXT 下载）
 │           ├── MindMap.vue         # 思维导图（markmap 渲染，支持缩放/全屏/SVG+PNG 导出）
 │           └── QAChat.vue          # AI 问答（DOM 逐字打字机动画）
 └── downloads/                 # 下载存储目录
@@ -178,7 +180,8 @@ free-video-downloader/
 ```
 用户输入 URL → 提取视频信息
   ├─ 字幕提取: yt-dlp writeautomaticsub / B站 CC API
-  ├─ AI 总结: 字幕 → DeepSeek SSE 流式 → DOM 逐字打字机渲染
+  ├─ 字幕查看: 时间戳排序、搜索过滤、正序/倒序、SRT/TXT 下载
+  ├─ AI 总结: 字幕 → DeepSeek SSE 流式 → DOM 逐字打字机渲染 → marked 渲染 Markdown
   ├─ 思维导图: 字幕 → DeepSeek JSON 模式 → markmap (D3.js) 交互式渲染 → SVG/PNG 导出
   └─ AI 问答: 字幕 + 用户问题 → DeepSeek 流式回复
 ```

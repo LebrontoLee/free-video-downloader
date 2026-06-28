@@ -1,5 +1,6 @@
 <script setup>
 import { ref, inject, nextTick } from 'vue'
+import { marked } from 'marked'
 
 const t = inject('t')
 const API_BASE = 'http://localhost:8000'
@@ -134,21 +135,19 @@ function stopGeneration() {
 }
 
 function copySummary() {
-  const t = summaryText.value || twGetFull() || ''
-  navigator.clipboard.writeText(t).catch(() => {})
+  const text = summaryText.value || twGetFull() || ''
+  navigator.clipboard.writeText(text).catch(() => {})
 }
 
 function retry() { generateSummary() }
 
 function renderMarkdown(text) {
   if (!text) return ''
-  let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/^(\d+[\.\、]\s*.+)$/gm, '<li class="md-li">$1</li>')
-  html = html.replace(/^[-•]\s+(.+)$/gm, '<li class="md-li">$1</li>')
-  return html
+  // Parse with marked, producing clean HTML
+  return marked.parse(text, {
+    breaks: true,
+    gfm: true,
+  })
 }
 </script>
 
@@ -174,7 +173,7 @@ function renderMarkdown(text) {
 
     <!-- Done -->
     <div v-else-if="status === 'done'" class="sc-done">
-      <div class="sc-content" v-html="renderMarkdown(summaryText)"></div>
+      <div class="sc-content md-apple" v-html="renderMarkdown(summaryText)"></div>
       <div class="sc-actions">
         <button class="sc-action-btn" @click="copySummary">
           <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M15.666 3.888a2.25 2.25 0 00-1.837-.795H8.213c-1.44 0-2.384 0-3.009.248a3 3 0 00-1.456 1.456c-.248.625-.248 1.569-.248 3.009v3.179c0 .766 0 1.381.058 1.879.207 1.773 1.841 3.106 3.692 3.106h6.5c1.44 0 2.384 0 3.009-.248a3 3 0 001.456-1.456c.248-.625.248-1.569.248-3.009v-3.179c0-.766 0-1.381-.058-1.879a2.25 2.25 0 00-.795-1.311z" fill="currentColor"/></svg>
@@ -230,21 +229,165 @@ function renderMarkdown(text) {
 }
 .sc-stop-btn:hover { border-color: var(--color-error); color: var(--color-error); }
 
-.sc-content {
-  padding: 20px; background: var(--color-bg); border-radius: var(--radius-sm);
-  font-size: 15px; line-height: 1.7; white-space: pre-wrap;
+/* ── Apple-style Markdown Content ───────────────────────────────────── */
+.md-apple {
+  padding: 24px 28px;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-text);
 }
-.sc-content :deep(h2) { font-size: 18px; font-weight: 600; margin-top: 20px; margin-bottom: 8px; color: var(--color-text); }
-.sc-content :deep(h3) { font-size: 16px; font-weight: 600; margin-top: 16px; margin-bottom: 6px; color: var(--color-text); }
-.sc-content :deep(strong) { font-weight: 600; color: var(--color-text); }
-.sc-content :deep(.md-li) { display: list-item; list-style-position: inside; margin: 4px 0; }
+/* Headings */
+.md-apple :deep(h1) {
+  font-size: 24px; font-weight: 700; letter-spacing: -0.022em;
+  color: var(--color-text); margin: 28px 0 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.md-apple :deep(h1:first-child) { margin-top: 0; }
+.md-apple :deep(h2) {
+  font-size: 20px; font-weight: 600; letter-spacing: -0.021em;
+  color: var(--color-text); margin: 24px 0 10px;
+}
+.md-apple :deep(h2:first-child) { margin-top: 0; }
+.md-apple :deep(h3) {
+  font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
+  color: var(--color-text); margin: 20px 0 8px;
+}
+.md-apple :deep(h3:first-child) { margin-top: 0; }
+.md-apple :deep(h4) {
+  font-size: 15px; font-weight: 600;
+  color: var(--color-text); margin: 16px 0 6px;
+}
+.md-apple :deep(h4:first-child) { margin-top: 0; }
 
+/* Paragraphs */
+.md-apple :deep(p) {
+  margin: 8px 0;
+  color: var(--color-text);
+}
+.md-apple :deep(p:first-child) { margin-top: 0; }
+.md-apple :deep(p:last-child) { margin-bottom: 0; }
+
+/* Bold & italic */
+.md-apple :deep(strong) {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.md-apple :deep(em) {
+  font-style: italic;
+}
+
+/* Lists */
+.md-apple :deep(ul),
+.md-apple :deep(ol) {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+.md-apple :deep(li) {
+  margin: 4px 0;
+  padding-left: 4px;
+  color: var(--color-text);
+}
+.md-apple :deep(li::marker) {
+  color: var(--color-accent);
+}
+
+/* Code */
+.md-apple :deep(code) {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #d63384;
+}
+.md-apple :deep(pre) {
+  background: #1d1d1f;
+  color: #f5f5f7;
+  padding: 16px 20px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.md-apple :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Blockquote */
+.md-apple :deep(blockquote) {
+  margin: 12px 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--color-accent);
+  background: rgba(0, 113, 227, 0.04);
+  border-radius: 0 8px 8px 0;
+  color: var(--color-text-sub);
+}
+.md-apple :deep(blockquote p) {
+  color: inherit;
+  margin: 4px 0;
+}
+
+/* Horizontal rule */
+.md-apple :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--color-border-light);
+  margin: 20px 0;
+}
+
+/* Links */
+.md-apple :deep(a) {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.md-apple :deep(a:hover) {
+  text-decoration: underline;
+}
+
+/* Tables */
+.md-apple :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.md-apple :deep(th) {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--color-bg);
+  border-bottom: 2px solid var(--color-border);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.md-apple :deep(td) {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text);
+}
+.md-apple :deep(tr:last-child td) {
+  border-bottom: none;
+}
+
+/* Images */
+.md-apple :deep(img) {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin: 12px 0;
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────── */
 .sc-actions { display: flex; gap: 12px; margin-top: 16px; justify-content: center; }
 .sc-action-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 18px; border: 1px solid var(--color-border); border-radius: var(--radius-full);
   background: var(--color-surface); color: var(--color-text);
   font-family: var(--font-system); font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 .sc-action-btn:hover { background: var(--color-bg); border-color: var(--color-accent); color: var(--color-accent); }
 .sc-regenerate { color: var(--color-accent); }

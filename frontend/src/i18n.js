@@ -76,6 +76,7 @@ export const messages = {
     ai_tab_summary: 'AI 总结',
     ai_tab_mindmap: '思维导图',
     ai_tab_chat: 'AI 问答',
+    ai_tab_subtitles: '字幕文本',
 
     // Summary
     ai_summary_desc: '基于视频字幕生成 AI 智能总结，快速了解视频核心内容。',
@@ -105,6 +106,23 @@ export const messages = {
     ai_retry: '重试',
     ai_analyze: 'AI 分析',
     ai_metadata_notice: '该视频无字幕，AI 分析基于视频标题、简介和标签进行，结果可能不够精确。',
+
+    // Subtitle Viewer
+    sv_total: '共',
+    sv_entries: '条字幕',
+    sv_lang: '语言',
+    sv_auto: '自动生成',
+    sv_manual: '人工字幕',
+    sv_search_placeholder: '搜索字幕...',
+    sv_sort_desc: '倒序',
+    sv_sort_asc: '正序',
+    sv_copy: '复制',
+    sv_download: '下载',
+    sv_download_srt: '下载 SRT',
+    sv_download_txt: '下载 TXT',
+    sv_no_results: '无匹配结果',
+    sv_empty: '暂无字幕',
+    sv_showing: '显示',
   },
 
   en: {
@@ -209,6 +227,23 @@ export const messages = {
     ai_retry: 'Retry',
     ai_analyze: 'AI Analyze',
     ai_metadata_notice: 'No subtitles available. AI analysis is based on video title, description, and tags — results may be less precise.',
+
+    // Subtitle Viewer
+    sv_total: '',
+    sv_entries: 'entries',
+    sv_lang: 'Language',
+    sv_auto: 'Auto-generated',
+    sv_manual: 'Manual',
+    sv_search_placeholder: 'Search subtitles...',
+    sv_sort_desc: 'Newest first',
+    sv_sort_asc: 'Oldest first',
+    sv_copy: 'Copy',
+    sv_download: 'Download',
+    sv_download_srt: 'Download SRT',
+    sv_download_txt: 'Download TXT',
+    sv_no_results: 'No matching entries',
+    sv_empty: 'No subtitles',
+    sv_showing: 'Showing',
   },
 }
 
