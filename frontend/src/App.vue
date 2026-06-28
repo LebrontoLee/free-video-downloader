@@ -62,13 +62,6 @@ async function handleExtract(url) {
   video.value = null
   selectedFormat.value = null
 
-  // Only switch to full hero on the very first search; subsequent searches
-  // stay in the current view to avoid a jarring flash of the hero content.
-  const isFirstSearch = view.value === 'hero'
-  if (isFirstSearch) {
-    view.value = 'hero'
-  }
-
   try {
     const res = await fetch(`${API_BASE}/api/extract`, {
       method: 'POST',
@@ -85,14 +78,13 @@ async function handleExtract(url) {
       selectedFormat.value = data.data.formats[0].format_id
     }
     view.value = 'preview'
-    // Wait for DOM update, then scroll with offset for fixed nav + compact hero
-    const delay = isFirstSearch ? 200 : 100  // longer delay on first search for compact transition
+    // Wait for DOM update + compact hero transition, then scroll with offset
     setTimeout(() => {
       const el = document.getElementById('preview-section')
       if (!el) return
       const top = el.getBoundingClientRect().top + window.scrollY - 140
       window.scrollTo({ top, behavior: 'smooth' })
-    }, delay)
+    }, 200)
   } catch {
     error.value = t.value.error_network
   } finally {
