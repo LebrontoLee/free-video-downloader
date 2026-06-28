@@ -11,6 +11,7 @@ import re
 import uuid
 import json
 import queue
+import tempfile
 import threading
 import asyncio
 from pathlib import Path
@@ -129,8 +130,32 @@ def build_http_headers(url: str) -> dict:
     return headers
 
 
+def _write_bilibili_cookiefile() -> Optional[str]:
+    """Create a temporary Netscape-format cookie file with Bilibili SESSDATA.
+
+    Without authentication, Bilibili only serves lower-quality video streams
+    (max 480p). Passing a valid SESSDATA cookie unlocks 1080p+ streams.
+    Returns the path to the temp cookie file, or None if no cookie is configured.
+    """
+    sessdata = get_saved_cookie()
+    if not sessdata:
+        return None
+
+    # Netscape cookie file format:
+    # domain  flag  path  secure  expiration  name  value
+    cookie_line = f".bilibili.com\tTRUE\t/\tTRUE\t9999999999\tSESSDATA\t{sessdata}\n"
+
+    tmp = tempfile.NamedTemporaryFile(
+        mode='w', suffix='.txt', prefix='bili_cookies_', delete=False
+    )
+    tmp.write("# Netscape HTTP Cookie File\n")
+    tmp.write(cookie_line)
+    tmp.close()
+    return tmp.name
+
+
 def build_ydl_opts(extra_opts: dict, cookies_from_browser: Optional[str] = None, url: str = "") -> dict:
-    """Build yt-dlp options dict with optional browser cookies + Douyin auto-cookie."""
+    """Build yt-dlp options dict with optional browser cookies + Douyin auto-cookie + Bilibili auth."""
     opts = dict(extra_opts)
 
     # Douyin: auto-generate cookies via system Chrome + Playwright
@@ -138,6 +163,15 @@ def build_ydl_opts(extra_opts: dict, cookies_from_browser: Optional[str] = None,
         cookiefile = get_douyin_cookiefile(url)
         if cookiefile:
             opts["cookiefile"] = cookiefile
+
+    # Bilibili: pass SESSDATA cookie to access higher quality streams (1080p+)
+    # Without this, yt-dlp can only extract ≤480p formats
+    if "bilibili.com" in url or "b23.tv" in url:
+        bili_cookiefile = _write_bilibili_cookiefile()
+        if bili_cookiefile:
+            # If another cookiefile was already set (e.g. Douyin), merge them.
+            # In practice Douyin+Bilibili never co-occur, so we just set it.
+            opts["cookiefile"] = bili_cookiefile
 
     # Browser cookies for other sites that require authentication
     if cookies_from_browser:
