@@ -1,4 +1,14 @@
 <script setup>
+import { inject } from 'vue'
+
+const t = inject('t')
+const user = inject('user')
+const isPro = inject('isPro')
+const handleUpgrade = inject('handleUpgrade')
+
+function onUpgradeClick() {
+  handleUpgrade()
+}
 </script>
 
 <template>
@@ -16,7 +26,7 @@
             <li>单个视频下载</li>
             <li>AI 视频总结</li>
             <li>思维导图生成</li>
-            <li>字幕提取 & 下载</li>
+            <li>字幕提取 &amp; 下载</li>
             <li>抖音无水印下载</li>
           </ul>
           <button class="col-btn free-btn">开始使用</button>
@@ -36,8 +46,22 @@
             <li>优先下载速度</li>
             <li>零广告体验</li>
           </ul>
-          <button class="col-btn pro-btn">立即升级</button>
-          <p class="pro-note">即将上线 · 无需信用卡即可试用</p>
+          <button
+            v-if="!isPro"
+            class="col-btn pro-btn"
+            @click="onUpgradeClick"
+          >
+            {{ t.pro_upgrade_btn }}
+          </button>
+          <button
+            v-if="isPro"
+            class="col-btn pro-btn pro-active-btn"
+            @click="onUpgradeClick"
+          >
+            {{ t.pro_manage_btn }}
+          </button>
+          <p v-if="!user" class="pro-note">{{ t.pro_login_first }}</p>
+          <p v-if="isPro" class="pro-note pro-active-note">{{ t.pro_current_member }}</p>
         </div>
       </div>
     </div>
@@ -127,8 +151,11 @@
   box-shadow: 0 2px 12px rgba(0,113,227,0.25);
 }
 .pro-btn:hover { background: #0066cc; box-shadow: 0 6px 24px rgba(0,113,227,0.35); }
+.pro-active-btn { background: #34c759; box-shadow: 0 2px 12px rgba(52,199,89,0.25); }
+.pro-active-btn:hover { background: #2db84e; box-shadow: 0 6px 24px rgba(52,199,89,0.35); }
 
 .pro-note { font-size: 12px; color: #aeaeb2; margin-top: 16px; }
+.pro-active-note { color: #34c759; font-weight: 500; }
 
 /* ── Responsive ─────────────────────────── */
 @media (max-width: 640px) {

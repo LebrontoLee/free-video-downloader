@@ -1,10 +1,10 @@
 # VideoDown — 万能视频下载总结器
 
-> 免费在线视频下载器 + AI 视频分析工具
+> 免费在线视频下载器 + AI 视频分析工具 + 会员订阅
 
 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的在线视频下载器 + AI 视频分析工具。支持 **YouTube、Bilibili、抖音** 等 1,800+ 网站的视频下载，以及 **AI 总结、思维导图、AI 问答、字幕提取** 等智能分析功能。
 
-前端采用 Apple 风格设计，默认中文界面，支持中英文切换。已完成 **SEO 搜索引擎优化** 和 **GEO 生成式引擎优化**。
+前端采用 Apple 风格设计，默认中文界面，支持中英文切换。已完成 **SEO 搜索引擎优化** 和 **GEO 生成式引擎优化**。支持 **Stripe 会员订阅**，解锁 4K/8K 下载和无限 AI 分析。
 
 ## 特性
 
@@ -30,6 +30,13 @@
 - 🤖 **GEO 优化** — JSON-LD (WebApplication/FAQPage/HowTo)、AI 爬虫白名单、`<noscript>` 兜底
 - 📱 **响应式设计** — 完美适配手机、平板、桌面端
 
+### 会员订阅 (PRO)
+- 💳 **Stripe 支付** — 使用 Stripe Checkout 安全支付，支持全球信用卡
+- ⭐ **PRO 专属** — 4K/8K 超高清下载、无限 AI 分析、零广告体验
+- 🔐 **账号系统** — 邮箱注册登录，JWT 认证，密码 PBKDF2 加密存储
+- 🔄 **订阅管理** — Stripe Customer Portal 自助管理/取消订阅
+- 🛡️ **支付安全** — Webhook 签名验证 + 幂等防重付 + 事务原子升级
+
 ## 技术栈
 
 | 层 | 技术 |
@@ -38,6 +45,9 @@
 | 前端 | Vue 3 + Vite + markmap (D3.js 思维导图) + marked (Markdown 渲染) |
 | 通信 | REST API + SSE 进度推送 + EventSource 流式 |
 | AI | DeepSeek V4 Pro（OpenAI 兼容 SDK） |
+| 支付 | Stripe Checkout + Webhook + Customer Portal |
+| 认证 | JWT (HMAC-SHA256) + PBKDF2-SHA256 密码哈希 |
+| 数据库 | SQLite (WAL 模式) |
 | 设计 | Apple 风格 Design Token + CSS 自定义属性 |
 | SEO | robots.txt + sitemap.xml + JSON-LD + Open Graph + Twitter Card |
 
@@ -91,6 +101,18 @@ DEEPSEEK_API_KEY=sk-your-key-here
 # 2. F12 → Application → Cookies → bilibili.com
 # 3. 复制 SESSDATA 的值
 BILIBILI_SESSDATA=your-sessdata-here
+
+# ─── Stripe 支付配置（可选，用于 PRO 会员订阅）───────────────
+# 1. 注册 Stripe: https://dashboard.stripe.com/register
+# 2. 获取 Key: https://dashboard.stripe.com/test/apikeys
+STRIPE_SECRET_KEY=sk_test_your_key_here
+
+# 3. 创建产品: https://dashboard.stripe.com/test/products
+#    Name: "VideoDown PRO", Price: $4.99/月 (订阅)
+STRIPE_PRO_PRICE_ID=price_your_price_id_here
+
+# 4. Webhook secret（运行 stripe listen 后获得）
+STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
 ```
 
 ### 运行
@@ -112,7 +134,11 @@ npm run dev
 ```
 free-video-downloader/
 ├── backend/
-│   ├── server.py              # FastAPI 后端（API + yt-dlp + AI 端点）
+│   ├── server.py              # FastAPI 后端（API + yt-dlp + AI + 支付端点）
+│   ├── db.py                  # SQLite 数据库（用户、会员、支付、用量）
+│   ├── auth.py                # 认证模块（PBKDF2 密码哈希 + JWT）
+│   ├── stripe_handler.py      # Stripe 支付（Checkout + Webhook + Portal）
+│   ├── pro_checks.py          # PRO 权限检查 + AI 用量追踪
 │   ├── douyin_helper.py       # 抖音专用下载器（Playwright + RENDER_DATA）
 │   ├── subtitle_helper.py     # 字幕提取（yt-dlp + VTT/SRT 解析）
 │   ├── ai_helper.py           # DeepSeek 客户端 + Prompt 模板
@@ -136,13 +162,14 @@ free-video-downloader/
 │       ├── scrollEffects.js   # 滚动动画引擎（parallax/scrollFade/stickyPin）
 │       ├── style.css          # Apple 设计系统 + 动画 + 滚动效果
 │       └── components/
-│           ├── NavBar.vue          # 毛玻璃导航栏
+│           ├── NavBar.vue          # 毛玻璃导航栏 + 用户菜单 + PRO 徽章
+│           ├── AuthModal.vue       # 登录/注册弹窗（实时表单校验）
 │           ├── HeroSection.vue     # Hero + URL 输入（72px 大标题 + 辉光背景）
-│           ├── VideoPreview.vue    # 视频信息 + 格式选择
+│           ├── VideoPreview.vue    # 视频信息 + 格式选择（含 PRO 锁定）
 │           ├── DownloadProgress.vue# 实时进度条
 │           ├── FileList.vue        # 已下载列表
-│           ├── ProBanner.vue       # PRO 解锁（免费版 vs PRO 左右对比卡片）
-│           ├── AiPanel.vue         # AI 功能标签页容器
+│           ├── ProBanner.vue       # PRO 升级卡片（仅免费用户可见）
+│           ├── AiPanel.vue         # AI 功能标签页容器 + 用量计数器
 │           ├── SummaryCard.vue     # AI 总结（DOM 逐字打字机 + marked 渲染 Markdown）
 │           ├── SubtitleViewer.vue  # 字幕文本查看器
 │           ├── MindMap.vue         # 思维导图（markmap，SVG/PNG 导出）
@@ -204,6 +231,19 @@ free-video-downloader/
 | GET | `/api/ai/chat/stream` | AI 问答（SSE 流式） |
 | GET | `/api/ai/health` | DeepSeek 配置检查 |
 
+### 账号 & 支付
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | `/api/auth/register` | 邮箱注册（密码 ≥8 位） |
+| POST | `/api/auth/login` | 邮箱登录，返回 JWT |
+| GET | `/api/auth/me` | 获取当前用户 + PRO 状态 |
+| POST | `/api/payments/create-checkout` | 创建 Stripe Checkout（需登录） |
+| POST | `/api/payments/verify-session` | 支付返回后验证并升级 PRO |
+| GET | `/api/payments/portal` | Stripe Customer Portal（管理订阅） |
+| POST | `/api/webhook/stripe` | Stripe Webhook 接收（签名验证） |
+| GET | `/api/usage/status` | 查询 AI 免费次数（3次/天） |
+
 ## 平台兼容性
 
 | 平台 | 提取 | 下载 | 字幕 | AI 分析 |
@@ -234,6 +274,31 @@ free-video-downloader/
   ├─ 思维导图: 字幕 → DeepSeek JSON 模式 → markmap (D3.js) 交互式渲染 → SVG/PNG 导出
   └─ AI 问答: 字幕 + 用户问题 → DeepSeek 流式回复
 ```
+
+## PRO 会员
+
+| 功能 | 免费版 | PRO ($4.99/月) |
+|---|---|---|
+| 视频下载 | 无限 | 无限 |
+| 最高画质 | 1080p | 4K / 8K |
+| AI 分析 | 3 次/天 | 无限 |
+| 广告 | 有 | 零广告 |
+| 订阅管理 | - | Stripe Customer Portal |
+
+### 本地测试支付
+
+```bash
+# 终端 1: 后端
+cd backend && python server.py
+
+# 终端 2: 前端
+cd frontend && npm run dev
+
+# 终端 3: Stripe Webhook 转发
+stripe listen --forward-to localhost:8000/api/webhook/stripe
+```
+
+支付测试卡号: `4242 4242 4242 4242`（有效期/CVC 随意填）。
 
 ## License
 

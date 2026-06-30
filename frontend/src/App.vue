@@ -7,6 +7,7 @@ import DownloadProgress from './components/DownloadProgress.vue'
 import FileList from './components/FileList.vue'
 import ProBanner from './components/ProBanner.vue'
 import AiPanel from './components/AiPanel.vue'
+import AuthModal from './components/AuthModal.vue'
 import FeatureSection from './components/FeatureSection.vue'
 import HowToSection from './components/HowToSection.vue'
 
@@ -26,9 +27,163 @@ function toggleLang() {
 
 const scrollFx = useScrollEffects()
 
+// ─── Auth State ────────────────────────────────────────────────────────────────
+const user = ref(null)            // { id, email, is_pro, pro_expires_at } or null
+const showAuthModal = ref(false)
+const paymentView = ref(null)     // 'success' | 'cancel' | null
+const usageStatus = ref({ remaining: 3, limit: 3, used_today: 0, is_pro: false })
+
+const isPro = computed(() => user.value?.is_pro === true)
+
+async function fetchUser() {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.success && data.user) {
+      user.value = data.user
+      fetchUsageStatus()
+    } else {
+      localStorage.removeItem('auth_token')
+    }
+  } catch { /* network error — keep token for retry */ }
+}
+
+async function fetchUsageStatus() {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return
+  try {
+    const res = await fetch(`${API_BASE}/api/usage/status`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.success) {
+      usageStatus.value = {
+        remaining: data.remaining,
+        limit: data.limit,
+        used_today: data.used_today,
+        is_pro: data.is_pro,
+      }
+    }
+  } catch { /* non-critical */ }
+}
+
+function handleAuthenticated({ token, user: u }) {
+  user.value = u
+  showAuthModal.value = false
+  fetchUsageStatus()
+}
+
+function handleLogout() {
+  localStorage.removeItem('auth_token')
+  user.value = null
+  usageStatus.value = { remaining: 3, limit: 3, used_today: 0, is_pro: false }
+}
+
+function openAuthModal() {
+  showAuthModal.value = true
+}
+
+async function handleUpgrade() {
+  // Requires login first
+  if (!user.value) {
+    openAuthModal()
+    return
+  }
+
+  // Already PRO — go to customer portal
+  if (user.value.is_pro) {
+    const token = localStorage.getItem('auth_token')
+    try {
+      const res = await fetch(`${API_BASE}/api/payments/portal?return_url=${encodeURIComponent(window.location.origin)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      if (data.success && data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.detail || 'Failed to open subscription management')
+      }
+    } catch { alert(t.value.error_network) }
+    return
+  }
+
+  // Create checkout session
+  const token = localStorage.getItem('auth_token')
+  try {
+    const res = await fetch(`${API_BASE}/api/payments/create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        success_url: `${window.location.origin}?payment=success`,
+        cancel_url: `${window.location.origin}?payment=cancel`,
+      }),
+    })
+    const data = await res.json()
+    if (data.success && data.url) {
+      window.location.href = data.url
+    } else {
+      alert(data.detail || 'Failed to create checkout')
+    }
+  } catch { alert(t.value.error_network) }
+}
+
+// Check for payment redirect on mount
+async function checkPaymentRedirect() {
+  const params = new URLSearchParams(window.location.search)
+  const token = localStorage.getItem('auth_token')
+
+  if (params.get('payment') === 'success') {
+    const sessionId = params.get('session_id')
+    // Clean URL immediately so refreshing doesn't re-trigger
+    window.history.replaceState({}, '', window.location.pathname)
+
+    // First ensure user info is loaded
+    if (token) {
+      await fetchUser()
+    }
+
+    // Verify the session with backend to get up-to-date PRO status
+    if (sessionId && token && user.value) {
+      try {
+        const res = await fetch(`${API_BASE}/api/payments/verify-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        const data = await res.json()
+        if (data.success && (data.is_pro || data.status === 'paid')) {
+          // Refresh user from DB to get authoritative PRO status
+          await fetchUser()
+          await fetchUsageStatus()
+        }
+      } catch {
+        // fetchUser already ran above, so user is loaded
+      }
+    }
+    paymentView.value = 'success'
+  } else if (params.get('payment') === 'cancel') {
+    paymentView.value = 'cancel'
+    window.history.replaceState({}, '', window.location.pathname)
+  }
+}
+
 provide('t', t)
 provide('lang', lang)
 provide('scrollFx', scrollFx)
+provide('user', user)
+provide('isPro', isPro)
+provide('usageStatus', usageStatus)
+provide('openAuthModal', openAuthModal)
+provide('handleLogout', handleLogout)
+provide('handleUpgrade', handleUpgrade)
+provide('fetchUsageStatus', fetchUsageStatus)
 
 // ─── API Base ───────────────────────────────────────────────────────────────
 const API_BASE = ''
@@ -215,6 +370,9 @@ function closeAiPanel() {
 }
 
 fetchFiles()
+// Initialize auth state and check for payment redirects
+fetchUser()
+checkPaymentRedirect()
 
 // ─── Scroll-triggered reveal animation ────────────────────────────────────
 onMounted(() => {
@@ -255,7 +413,7 @@ onMounted(() => {
   <div class="app">
     <NavBar :lang="lang" @reset="handleReset" @toggle-lang="toggleLang" />
 
-    <main class="main">
+    <main class="main" :class="{ 'main-pro': isPro }">
       <HeroSection :loading="isLoading" :compact="view !== 'hero'" @extract="handleExtract" />
 
       <!-- Error -->
@@ -306,8 +464,8 @@ onMounted(() => {
       <!-- File List -->
       <FileList :files="files" :api-base="API_BASE" @refresh="fetchFiles" />
 
-      <!-- Pro Banner -->
-      <ProBanner />
+      <!-- Pro Banner (hidden for PRO users) -->
+      <ProBanner v-if="!isPro" />
 
       <!-- Marketing Sections (hidden when in downloading/AI views) -->
       <template v-if="view === 'hero' || view === 'preview' || view === 'complete'">
@@ -317,6 +475,31 @@ onMounted(() => {
         <PlatformSection />
       </template>
     </main>
+
+    <!-- Payment Success / Cancel Views -->
+    <div v-if="paymentView === 'success'" class="container">
+      <div class="payment-result success animate-in">
+        <div class="payment-icon">&#10003;</div>
+        <h2 class="payment-title">{{ t.payment_success_title }}</h2>
+        <p class="payment-desc">{{ t.payment_success_desc }}</p>
+        <button class="payment-btn" @click="paymentView = null">{{ t.nav_title }} &#8594;</button>
+      </div>
+    </div>
+    <div v-if="paymentView === 'cancel'" class="container">
+      <div class="payment-result cancel animate-in">
+        <div class="payment-icon payment-icon-cancel">&#10007;</div>
+        <h2 class="payment-title">{{ t.payment_cancel_title }}</h2>
+        <p class="payment-desc">{{ t.payment_cancel_desc }}</p>
+        <button class="payment-btn" @click="paymentView = null">{{ t.payment_try_again }}</button>
+      </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <AuthModal
+      v-if="showAuthModal"
+      @close="showAuthModal = false"
+      @authenticated="handleAuthenticated"
+    />
 
     <!-- Footer -->
     <AppFooter />
@@ -336,4 +519,26 @@ onMounted(() => {
 .error-icon { flex-shrink: 0; }
 .error-dismiss { margin-left: auto; background: none; border: none; color: #ff3b30; font-size: 20px; cursor: pointer; opacity: 0.6; }
 .error-dismiss:hover { opacity: 1; }
+
+/* Payment Result */
+.payment-result {
+  text-align: center; padding: 64px 32px; max-width: 520px; margin: 40px auto;
+  border-radius: 20px; background: #fff; border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 24px rgba(0,0,0,0.04);
+}
+.payment-icon {
+  width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: #fff; background: #34c759;
+}
+.payment-icon-cancel { background: #ff9500; }
+.payment-title { font-size: 24px; font-weight: 700; color: #1d1d1f; margin-bottom: 8px; }
+.payment-desc { font-size: 15px; color: #86868b; margin-bottom: 24px; line-height: 1.5; }
+.payment-btn {
+  padding: 12px 28px; border: none; border-radius: 12px;
+  background: #0071e3; color: #fff; font-family: inherit; font-size: 15px;
+  font-weight: 600; cursor: pointer; transition: all 0.25s;
+  box-shadow: 0 2px 12px rgba(0,113,227,0.25);
+}
+.payment-btn:hover { background: #0066cc; box-shadow: 0 6px 24px rgba(0,113,227,0.35); }
 </style>

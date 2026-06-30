@@ -32,5 +32,10 @@ Thumbs.db
 debug_*.py
 *.tmp
 
+# Database
+*.db
+*.db-shm
+*.db-wal
+
 # Playwright
 ms-playwright/

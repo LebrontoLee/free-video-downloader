@@ -2,8 +2,10 @@
 import { ref, computed, inject } from 'vue'
 
 const t = inject('t')
+const isPro = inject('isPro')
+const openAuthModal = inject('openAuthModal')
 const props = defineProps({ video: Object, selectedFormat: String, isDownloading: Boolean })
-defineEmits(['select-format', 'download', 'reset', 'ai-features'])
+const emit = defineEmits(['select-format', 'download', 'reset', 'ai-features'])
 
 const thumbnailFailed = ref(false)
 
@@ -13,6 +15,22 @@ const thumbnailProxyUrl = computed(() => {
 })
 
 function onThumbnailError() { thumbnailFailed.value = true }
+
+function isProFormat(fmt) {
+  // Formats requiring PRO: height > 1080 or explicit 4K/8K markers
+  const h = fmt.height || 0
+  if (h > 1080) return true
+  const fid = (fmt.format_id || '').toLowerCase()
+  return fid.includes('2160') || fid.includes('4k') || fid.includes('4320') || fid.includes('8k')
+}
+
+function handleFormatClick(fmt) {
+  if (isProFormat(fmt) && !isPro.value) {
+    openAuthModal()
+    return
+  }
+  emit('select-format', fmt.format_id)
+}
 </script>
 
 <template>
@@ -47,12 +65,22 @@ function onThumbnailError() { thumbnailFailed.value = true }
           <div class="format-grid">
             <button v-for="fmt in video.formats" :key="fmt.format_id"
               class="format-chip glass"
-              :class="{ 'format-active': selectedFormat === fmt.format_id, 'format-audio': fmt.note === 'audio' }"
+              :class="{
+                'format-active': selectedFormat === fmt.format_id,
+                'format-audio': fmt.note === 'audio',
+                'format-pro-locked': isProFormat(fmt) && !isPro
+              }"
               :disabled="isDownloading"
-              @click="$emit('select-format', fmt.format_id)">
-              <span class="fmt-resolution">{{ fmt.height ? fmt.height + 'p' : 'MP3' }}</span>
+              @click="handleFormatClick(fmt)">
+              <span class="fmt-resolution">
+                {{ fmt.height ? fmt.height + 'p' : 'MP3' }}
+                <span v-if="isProFormat(fmt) && !isPro" class="fmt-pro-lock">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+                </span>
+              </span>
               <span class="fmt-detail">{{ fmt.ext }} · {{ fmt.filesize_str }}</span>
-              <span v-if="fmt.note === 'merge'" class="fmt-badge">{{ t.merge_badge }}</span>
+              <span v-if="isProFormat(fmt) && !isPro" class="fmt-pro-tag">{{ t.pro_lock_badge }}</span>
+              <span v-else-if="fmt.note === 'merge'" class="fmt-badge">{{ t.merge_badge }}</span>
             </button>
           </div>
         </div>
@@ -98,6 +126,14 @@ function onThumbnailError() { thumbnailFailed.value = true }
 .format-audio .fmt-resolution { font-size: 18px; }
 .fmt-detail { font-size: 12px; color: #6e6e73; }
 .fmt-badge { font-size: 10px; font-weight: 500; color: #86868b; background: rgba(0,0,0,0.04); padding: 2px 7px; border-radius: 4px; margin-top: 3px; }
+.fmt-pro-lock { display: inline-flex; align-items: center; margin-left: 4px; color: #aeaeb2; }
+.format-pro-locked { opacity: 0.6; cursor: not-allowed; position: relative; }
+.format-pro-locked:hover { border-color: #ff9500 !important; }
+.fmt-pro-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  color: #fff; background: linear-gradient(135deg, #0071e3, #5e5ce6);
+  padding: 2px 7px; border-radius: 4px; margin-top: 3px;
+}
 
 .preview-actions { display: flex; gap: 16px; margin-top: 28px; padding-top: 28px; border-top: 1px solid rgba(0,0,0,0.06); }
 .download-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 28px; border: none; border-radius: 18px; background: #0071e3; color: #fff; font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s var(--ease-out); }

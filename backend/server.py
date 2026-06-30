@@ -18,7 +18,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -41,6 +41,19 @@ from ai_tasks import (
     cache_mindmap, get_cached_mindmap,
     get_url_lock,
 )
+
+# Database + Auth
+from db import init_db, get_db, DB_PATH
+from auth import (
+    hash_password, verify_password, create_jwt, verify_jwt,
+    get_current_user, require_auth, check_rate_limit,
+)
+
+# Stripe integration
+import stripe_handler
+
+# PRO feature gating
+from pro_checks import check_and_record_usage, require_pro, is_pro_format
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 app = FastAPI(title="Free Video Downloader", version="1.0.0")
@@ -103,6 +116,167 @@ class ChatRequest(BaseModel):
     url: str
     question: str
     session_id: Optional[str] = None
+
+
+# ─── Auth Request Models ────────────────────────────────────────────────────────
+class AuthRegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+# ─── Stripe Request Models ──────────────────────────────────────────────────────
+class CreateCheckoutRequest(BaseModel):
+    success_url: str = "http://localhost:5173?payment=success"
+    cancel_url: str = "http://localhost:5173?payment=cancel"
+
+
+class VerifySessionRequest(BaseModel):
+    session_id: str
+
+
+# ─── Stripe / Payment Endpoints ────────────────────────────────────────────────
+
+
+@app.post("/api/payments/create-checkout")
+async def create_checkout(
+    req: CreateCheckoutRequest,
+    user: dict = Depends(require_auth),
+):
+    """Create a Stripe Checkout Session for PRO subscription.
+
+    Requires authentication. Returns the Stripe checkout URL to redirect to.
+    """
+    try:
+        result = stripe_handler.create_checkout_session(
+            user_id=user["id"],
+            user_email=user["email"],
+            success_url=req.success_url,
+            cancel_url=req.cancel_url,
+        )
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create checkout: {str(e)}")
+
+
+@app.post("/api/payments/verify-session")
+async def verify_session(
+    req: VerifySessionRequest,
+    user: dict = Depends(require_auth),
+):
+    """Verify a Stripe Checkout Session after the user is redirected back.
+
+    Used by the frontend to confirm payment before updating local state.
+    """
+    result = stripe_handler.verify_checkout_session(req.session_id, user["id"])
+    if result is None:
+        raise HTTPException(status_code=400, detail="Invalid or unauthorized session.")
+
+    # Re-fetch user to get updated is_pro status
+    db = get_db()
+    cursor = db.execute("SELECT is_pro, pro_expires_at FROM users WHERE id = ?", (user["id"],))
+    row = cursor.fetchone()
+    if row:
+        result["is_pro"] = bool(row["is_pro"])
+        result["pro_expires_at"] = row["pro_expires_at"]
+
+    return {"success": True, **result}
+
+
+@app.get("/api/payments/portal")
+async def customer_portal(
+    return_url: str = "http://localhost:5173",
+    user: dict = Depends(require_auth),
+):
+    """Create a Stripe Customer Portal session for managing subscriptions.
+
+    Automatically looks up the customer ID from the membership or subscription.
+    """
+    # Try to find the customer ID (checks membership first, then Stripe API)
+    customer_id = stripe_handler.get_customer_id_for_user(user["id"])
+
+    if not customer_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No active subscription found. Please subscribe first.",
+        )
+
+    try:
+        portal_url = stripe_handler.create_portal_session(
+            customer_id=customer_id,
+            return_url=return_url,
+        )
+        return {"success": True, "url": portal_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create portal: {str(e)}")
+
+
+@app.post("/api/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Stripe webhook endpoint. Receives events from Stripe.
+
+    IMPORTANT: This endpoint must NOT consume the request body via Pydantic models.
+    We read the raw bytes directly for signature verification.
+    """
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing stripe-signature header.")
+
+    try:
+        result = stripe_handler.handle_webhook(payload, sig_header)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Webhook processing failed.")
+
+
+# ─── Usage / PRO Status Endpoint ────────────────────────────────────────────────
+
+
+@app.get("/api/usage/status")
+async def usage_status(user: Optional[dict] = Depends(get_current_user)):
+    """Get the current user's AI usage status and PRO information.
+
+    Returns remaining free AI analyses for today, or unlimited if PRO.
+    """
+    if user and user.get("is_pro"):
+        return {
+            "success": True,
+            "is_pro": True,
+            "remaining": "unlimited",
+            "limit": None,
+            "used_today": 0,
+        }
+
+    db = get_db()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    cursor = db.execute(
+        """SELECT COUNT(*) as cnt FROM usage_logs
+           WHERE user_id = ? AND action_type LIKE 'ai_%' AND created_at >= ?""",
+        (user["id"] if user else None, today),
+    )
+    used = cursor.fetchone()["cnt"] if cursor.rowcount > 0 else 0
+
+    limit = 3
+    remaining = max(0, limit - used)
+
+    return {
+        "success": True,
+        "is_pro": False,
+        "remaining": remaining,
+        "limit": limit,
+        "used_today": used,
+    }
 
 
 # ─── Helper Functions ────────────────────────────────────────────────────────
@@ -552,10 +726,17 @@ async def extract_video_info(req: ExtractRequest):
 
 
 @app.post("/api/download")
-async def start_download(req: DownloadRequest):
+async def start_download(req: DownloadRequest, user: Optional[dict] = Depends(get_current_user)):
     """Start a download task and return a task_id for progress tracking."""
     if not req.url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check if the selected format requires PRO
+    if is_pro_format(req.format_id):
+        db = get_db()
+        allowed, reason = check_and_record_usage(user, "download_4k", db)
+        if not allowed:
+            raise HTTPException(status_code=402, detail=reason)
 
     task_id = uuid.uuid4().hex[:12]
     task = DownloadTask(task_id)
@@ -683,6 +864,112 @@ async def download_file(filename: str):
     )
 
 
+# ─── Auth Endpoints ────────────────────────────────────────────────────────────
+
+
+@app.post("/api/auth/register")
+async def register_user(req: AuthRegisterRequest, request: Request):
+    """Register a new user account. Returns JWT token on success."""
+    import re as _re
+
+    # Rate limit
+    ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(ip):
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again later.")
+
+    email = req.email.strip().lower()
+
+    # Validate email format
+    if not _re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise HTTPException(status_code=400, detail="Invalid email format.")
+
+    # Validate password
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    db = get_db()
+
+    # Check if email already exists
+    cursor = db.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if cursor.fetchone() is not None:
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+    # Create user
+    pw_hash, salt = hash_password(req.password)
+    cursor = db.execute(
+        "INSERT INTO users (email, password_hash, salt) VALUES (?, ?, ?)",
+        (email, pw_hash, salt),
+    )
+    db.commit()
+
+    user_id = cursor.lastrowid
+    token = create_jwt(user_id, email)
+
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": email,
+            "is_pro": False,
+            "pro_expires_at": None,
+        },
+    }
+
+
+@app.post("/api/auth/login")
+async def login_user(req: AuthLoginRequest, request: Request):
+    """Login with email and password. Returns JWT token."""
+    ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(ip):
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again later.")
+
+    email = req.email.strip().lower()
+
+    db = get_db()
+    cursor = db.execute(
+        "SELECT id, email, password_hash, salt, is_pro, pro_expires_at FROM users WHERE email = ?",
+        (email,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    user = dict(row)
+
+    if not verify_password(req.password, user["password_hash"], user["salt"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    token = create_jwt(user["id"], user["email"])
+
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "is_pro": bool(user["is_pro"]),
+            "pro_expires_at": user["pro_expires_at"],
+        },
+    }
+
+
+@app.get("/api/auth/me")
+async def get_me(user: Optional[dict] = Depends(get_current_user)):
+    """Return the current authenticated user's info, or null if not logged in."""
+    if user is None:
+        return {"success": True, "user": None}
+    return {
+        "success": True,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "is_pro": bool(user["is_pro"]),
+            "pro_expires_at": user["pro_expires_at"],
+        },
+    }
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -702,13 +989,19 @@ async def ai_health_check():
 
 
 @app.post("/api/ai/subtitles")
-async def extract_subtitles_endpoint(req: SubtitleRequest):
+async def extract_subtitles_endpoint(req: SubtitleRequest, user: Optional[dict] = Depends(get_current_user)):
     """
     Extract subtitles/transcript for a video URL.
     Uses yt-dlp in a thread to download subtitles without the video.
     """
     if not req.url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check AI usage limit (free: 3/day)
+    db = get_db()
+    allowed, reason = check_and_record_usage(user, "ai_subtitles", db, req.url)
+    if not allowed:
+        raise HTTPException(status_code=402, detail=reason)
 
     # Check cache first
     cached = get_cached_transcript(req.url)
@@ -756,13 +1049,19 @@ async def extract_subtitles_endpoint(req: SubtitleRequest):
 
 
 @app.get("/api/ai/summary")
-async def generate_summary_endpoint(url: str, style: str = "detailed"):
+async def generate_summary_endpoint(url: str, style: str = "detailed", user: Optional[dict] = Depends(get_current_user)):
     """
     Generate an AI summary of the video transcript.
     SSE streaming with token-by-token output. Uses GET for native EventSource support.
     """
     if not url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check AI usage limit (free: 3/day)
+    db = get_db()
+    allowed, reason = check_and_record_usage(user, "ai_summary", db, url)
+    if not allowed:
+        raise HTTPException(status_code=402, detail=reason)
 
     transcript_data = get_cached_transcript(url)
     if not transcript_data:
@@ -813,13 +1112,19 @@ async def generate_summary_endpoint(url: str, style: str = "detailed"):
 
 
 @app.post("/api/ai/mindmap")
-async def generate_mindmap_endpoint(req: MindmapRequest):
+async def generate_mindmap_endpoint(req: MindmapRequest, user: Optional[dict] = Depends(get_current_user)):
     """
     Generate a mind map tree from video transcript or summary.
     Uses DeepSeek JSON mode for structured output.
     """
     if not req.url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check AI usage limit (free: 3/day)
+    db = get_db()
+    allowed, reason = check_and_record_usage(user, "ai_mindmap", db, req.url)
+    if not allowed:
+        raise HTTPException(status_code=402, detail=reason)
 
     # Check cache
     cached = get_cached_mindmap(req.url)
@@ -871,13 +1176,19 @@ async def generate_mindmap_endpoint(req: MindmapRequest):
 
 
 @app.get("/api/ai/chat/stream")
-async def chat_stream_endpoint(url: str, question: str, session_id: str = ""):
+async def chat_stream_endpoint(url: str, question: str, session_id: str = "", user: Optional[dict] = Depends(get_current_user)):
     """
     Stream AI Q&A responses about video content.
     Uses GET for native EventSource support.
     """
     if not url.strip() or not question.strip():
         raise HTTPException(status_code=400, detail="URL and question are required")
+
+    # Check AI usage limit (free: 3/day)
+    db = get_db()
+    allowed, reason = check_and_record_usage(user, "ai_chat", db, url)
+    if not allowed:
+        raise HTTPException(status_code=402, detail=reason)
 
     if not session_id or not get_chat_session(session_id):
         session_id = create_chat_session(url)
@@ -999,9 +1310,13 @@ if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding='utf-8')
 
+    # Initialize database tables
+    init_db()
+
     print("=" * 56)
     print("  Free Video Downloader - Backend Server")
     print("=" * 56)
+    print(f"  Database: {DB_PATH.resolve()}")
     print(f"  Downloads directory: {DOWNLOADS_DIR}")
     print(f"  API docs: http://localhost:8000/docs")
     print(f"  Frontend: http://localhost:5173")

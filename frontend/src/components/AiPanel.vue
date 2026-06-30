@@ -6,6 +6,9 @@ import QAChat from './QAChat.vue'
 import SubtitleViewer from './SubtitleViewer.vue'
 
 const t = inject('t')
+const usageStatus = inject('usageStatus')
+const isPro = inject('isPro')
+const handleUpgrade = inject('handleUpgrade')
 
 const props = defineProps({
   url: String,
@@ -41,6 +44,21 @@ function setTab(tab) {
             <h2 class="ai-header-title">{{ t.ai_title || 'AI 视频分析' }}</h2>
             <p class="ai-video-name">{{ videoTitle }}</p>
           </div>
+        </div>
+
+        <!-- Usage / PRO Banner -->
+        <div v-if="subtitlesStatus !== 'loading' && !isPro" class="ai-usage-banner">
+          <template v-if="usageStatus && usageStatus.remaining > 0">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/></svg>
+            <span>{{ t.pro_free_remaining.replace('{n}', usageStatus.remaining) }}</span>
+          </template>
+          <template v-else-if="usageStatus && usageStatus.remaining === 0">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/></svg>
+            <span>{{ t.pro_free_used }}</span>
+          </template>
+          <button v-if="usageStatus && usageStatus.remaining === 0" class="ai-upgrade-link" @click="handleUpgrade()">
+            {{ t.pro_upgrade_prompt }}
+          </button>
         </div>
 
         <!-- Loading state -->
@@ -289,6 +307,22 @@ function setTab(tab) {
   color: var(--color-text);
   background: rgba(255,255,255,0.4);
 }
+
+/* Usage Banner */
+.ai-usage-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; margin-bottom: 16px;
+  background: rgba(0, 113, 227, 0.04);
+  border: 1px solid rgba(0, 113, 227, 0.12);
+  border-radius: 10px;
+  font-size: 13px; color: #0071e3; font-weight: 500;
+}
+.ai-upgrade-link {
+  margin-left: auto; font-size: 12px; font-weight: 600; color: #0071e3;
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.ai-upgrade-link:hover { opacity: 0.7; }
 
 @media (max-width: 600px) {
   .ai-panel { padding: 24px 20px; }
