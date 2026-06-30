@@ -73,6 +73,25 @@ function useExample(u) { url.value = u; emit('extract', u) }
   text-align: center;
   padding-top: 88px;   /* nav 48px + 40px breathing room */
   padding-bottom: 40px;
+  position: relative;
+  overflow: hidden;
+}
+/* Premium glow orb — Apple-style background decoration */
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 600px;
+  background: radial-gradient(ellipse at center, rgba(0,113,227,0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero > .container {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Collapsible top (title + subtitle) ─────────────────────────────────── */
@@ -88,15 +107,12 @@ function useExample(u) { url.value = u; emit('extract', u) }
   opacity: 0;
 }
 .hero-title {
-  font-size: 64px; font-weight: 700; letter-spacing: -0.031em; line-height: 1.0625;
-  color: #1d1d1f; margin-bottom: 16px;
-  background: linear-gradient(135deg, #1d1d1f 0%, #3a3a3c 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 72px; font-weight: 700; letter-spacing: -0.035em; line-height: 1.05;
+  color: #1d1d1f; margin-bottom: 20px;
 }
 .hero-subtitle {
-  font-size: 21px; font-weight: 400; line-height: 1.381;
-  color: #6e6e73; padding-bottom: 28px;
+  font-size: 24px; font-weight: 400; line-height: 1.4;
+  color: #6e6e73; padding-bottom: 32px;
 }
 
 /* ── Search bar — fixed position, never moves ──────────────────────────── */
@@ -170,8 +186,8 @@ function useExample(u) { url.value = u; emit('extract', u) }
 @media (max-width: 768px) {
   .hero { padding-top: 72px; }
   .hero-top { max-height: 160px; }
-  .hero-title { font-size: 40px; }
-  .hero-subtitle { font-size: 17px; padding-bottom: 20px; }
+  .hero-title { font-size: 44px; }
+  .hero-subtitle { font-size: 18px; padding-bottom: 20px; }
   .search-area { max-width: 100%; }
   .url-input { font-size: 16px; padding: 14px 48px 14px 44px; }
   .trust-signals { gap: 20px; }
