@@ -287,6 +287,27 @@ free-video-downloader/
 
 ### 本地测试支付
 
+#### 前置准备
+
+1. 注册 [Stripe](https://dashboard.stripe.com/register)，确保左上角为 **Test mode**
+2. 获取 [API Key](https://dashboard.stripe.com/test/apikeys)，将 Secret key 填入 `.env`：
+   ```
+   STRIPE_SECRET_KEY=sk_test_xxx
+   ```
+3. 创建产品：进入 [Products](https://dashboard.stripe.com/test/products) → Add product
+   - Name: `VideoDown PRO`
+   - Pricing: Standard pricing，$4.99 USD，Monthly（订阅）
+   - 创建后复制 Price ID 填入 `.env`：
+   ```
+   STRIPE_PRO_PRICE_ID=price_xxx
+   ```
+4. 安装 [Stripe CLI](https://github.com/stripe/stripe-cli/releases)，登录：
+   ```bash
+   stripe login
+   ```
+
+#### 启动服务（3 个终端）
+
 ```bash
 # 终端 1: 后端
 cd backend && python server.py
@@ -298,7 +319,39 @@ cd frontend && npm run dev
 stripe listen --forward-to localhost:8000/api/webhook/stripe
 ```
 
-支付测试卡号: `4242 4242 4242 4242`（有效期/CVC 随意填）。
+> ⚠️ **重要**：终端 3 启动后会输出一行 `whsec_xxx`，复制到 `.env` 并重启后端：
+> ```
+> STRIPE_WEBHOOK_SECRET=whsec_xxx
+> ```
+
+#### 支付测试
+
+1. 浏览器打开 `http://localhost:5173`
+2. 注册账号 → 点击「立即升级」
+3. 在 Stripe 支付页填写：
+
+| 字段 | 填什么 |
+|---|---|
+| 卡号 | `4242 4242 4242 4242` |
+| 有效期 | 任意未来日期（如 12/30） |
+| CVC | 任意 3 位（如 123） |
+| 姓名 | 任意 |
+
+4. 点击支付 → 自动跳回网站 → 导航栏出现金色 PRO 徽章
+5. 刷新页面验证：不再显示 ProBanner 广告，4K 画质已解锁
+
+#### 模拟 Stripe 事件（可选）
+
+```bash
+# 模拟支付完成
+stripe trigger checkout.session.completed
+
+# 模拟订阅更新
+stripe trigger customer.subscription.updated
+
+# 模拟订阅取消
+stripe trigger customer.subscription.deleted
+```
 
 ## License
 
